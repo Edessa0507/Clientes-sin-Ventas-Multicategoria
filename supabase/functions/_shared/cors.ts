@@ -4,6 +4,7 @@ const allowedOrigins = [
   'http://localhost:3000', // Desarrollo local Vite (puerto alterno)
   'http://172.16.10.153:3000', // Desarrollo en red local
   'https://clientes-sin-ventas-edessa.netlify.app', // Producción Netlify
+  'https://clientes-sin-ventas-multicategoria.netlify.app', // Producción Netlify (dominio actual)
   'https://xaohatfpnsoszduxgdyp.supabase.co' // Supabase
 ];
 

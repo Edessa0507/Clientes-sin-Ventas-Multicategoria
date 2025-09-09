@@ -1,18 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
-import { Session } from '@supabase/supabase-js';
 import { User, UserRole } from '../types/user';
 
 interface AuthState {
   user: User | null;
-  session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
   login: (codigo: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  initializeAuth: () => () => void;
   clearError: () => void;
   hasRole: (roles: UserRole[]) => boolean;
 }
@@ -21,9 +18,8 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      session: null,
       isAuthenticated: false,
-      isLoading: true,
+      isLoading: false,
       error: null,
 
       hasRole: (roles: UserRole[]) => {
@@ -36,18 +32,25 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          // Verificar si es un intento de inicio de sesión de administrador
+          // Validar entrada
+          if (!codigo || codigo.trim().length === 0) {
+            throw new Error('Código de vendedor requerido');
+          }
+
+          // Verificar si es admin y requiere password
           const isAdmin = codigo.toLowerCase() === 'admin';
-          
           if (isAdmin && !password) {
-            return { success: false, error: 'La contraseña es requerida para el administrador.' };
+            throw new Error('La contraseña es requerida para el administrador');
           }
           
-          // Usar la función de autenticación personalizada
+          // Llamar a la función de autenticación
           console.log('Llamando a la función de autenticación...');
           const { data, error } = await supabase.functions.invoke('auth-code-login', {
             method: 'POST',
-            body: { code: codigo, password: password || undefined }
+            body: { 
+              code: codigo.trim().toUpperCase(), 
+              password: password || undefined 
+            }
           });
           
           console.log('Respuesta de la función de autenticación:', { data, error });
@@ -69,19 +72,20 @@ export const useAuthStore = create<AuthState>()(
 
           // Actualizar el estado con el usuario autenticado
           const userData = data.user;
+          const user: User = {
+            id: userData.id,
+            codigo: userData.codigo,
+            nombre: userData.nombre_completo || userData.nombre || 'Usuario',
+            rol: userData.rol,
+            email: userData.email,
+            zona_id: userData.zona_id,
+            supervisor_id: userData.supervisor_id,
+            ultimo_login: userData.ultimo_login,
+            created_at: userData.created_at
+          };
+
           set({
-            user: {
-              id: userData.id,
-              codigo: userData.codigo,
-              nombre: userData.nombre_completo || userData.nombre || 'Usuario',
-              rol: userData.rol,
-              email: userData.email,
-              zona_id: userData.zona_id,
-              supervisor_id: userData.supervisor_id,
-              ultimo_login: userData.ultimo_login,
-              created_at: userData.created_at
-            },
-            session: data.session || { user: { id: userData.id } } as any, // Type assertion for session
+            user,
             isAuthenticated: true,
             isLoading: false,
             error: null,
@@ -96,147 +100,51 @@ export const useAuthStore = create<AuthState>()(
             error: errorMessage, 
             isLoading: false,
             isAuthenticated: false,
-            user: null,
-            session: null
+            user: null
           });
           return { success: false, error: errorMessage };
         }
       },
 
       logout: async () => {
-        set({ isLoading: true })
-        await supabase.auth.signOut()
-        set({ user: null, session: null, isAuthenticated: false, isLoading: false })
-      },
-      
-      initializeAuth: () => {
-        // Verificar si hay una sesión activa al cargar la aplicación
-        const checkSession = async () => {
-          try {
-            const { data: { session }, error } = await supabase.auth.getSession();
-            
-            if (error) throw error;
-            
-            if (session) {
-              // Obtener el perfil del usuario desde nuestra tabla personalizada
-              const { data: userData, error: userError } = await supabase
-                .from('auth_users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-
-              if (userError) throw userError;
-
-              set({
-                session,
-                user: {
-                  id: userData.id,
-                  codigo: userData.codigo,
-                  nombre: userData.nombre_completo,
-                  rol: userData.rol,
-                  email: userData.email,
-                  zona_id: userData.zona_id,
-                  supervisor_id: userData.supervisor_id,
-                  ultimo_login: userData.ultimo_login,
-                  created_at: userData.created_at
-                },
-                isAuthenticated: true,
-                isLoading: false,
-              });
-            } else {
-              set({ isLoading: false });
-            }
-          } catch (error) {
-            console.error('Error al inicializar autenticación:', error);
-            set({ isLoading: false });
-          }
-        };
-
-        checkSession();
-
-        // Escuchar cambios en la autenticación
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            console.log('Cambio en el estado de autenticación:', event);
-            
-            if (event === 'SIGNED_IN' && session) {
-              // Obtener el perfil del usuario
-              const { data: userData, error } = await supabase
-                .from('auth_users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-
-              if (error) {
-                console.error('Error al obtener el perfil:', error);
-                set({ session, isAuthenticated: true, isLoading: false });
-                return;
-              }
-
-              set({
-                session,
-                user: {
-                  id: userData.id,
-                  codigo: userData.codigo,
-                  nombre: userData.nombre_completo,
-                  rol: userData.rol,
-                  email: userData.email,
-                  zona_id: userData.zona_id,
-                  supervisor_id: userData.supervisor_id,
-                  ultimo_login: userData.ultimo_login,
-                  created_at: userData.created_at
-                },
-                isAuthenticated: true,
-                isLoading: false,
-              });
-            } else if (event === 'SIGNED_OUT') {
-              set({
-                session: null,
-                user: null,
-                isAuthenticated: false,
-                isLoading: false,
-              });
-            } else {
-              set({ isLoading: false });
-            }
-          }
-        );
-
-        // Retornar función de limpieza
-        return () => {
-          subscription.unsubscribe();
-        };
+        set({ isLoading: true });
+        try {
+          // Limpiar estado local
+          set({ 
+            user: null, 
+            isAuthenticated: false, 
+            isLoading: false,
+            error: null 
+          });
+        } catch (error) {
+          console.error('Error durante logout:', error);
+          set({ isLoading: false });
+        }
       },
 
       clearError: () => {
-        set({ error: null })
+        set({ error: null });
       }
     }),
     {
       name: 'auth-storage',
       storage: {
         getItem: (name) => {
-          const str = localStorage.getItem(name)
-          if (!str) return null
-          const { state } = JSON.parse(str)
-          return {
-            state: {
-              ...state,
-              session: state.session,
-            },
-          }
+          const str = localStorage.getItem(name);
+          if (!str) return null;
+          const { state } = JSON.parse(str);
+          return { state };
         },
         setItem: (name, newValue) => {
-          const str = JSON.stringify({
-            state: {
-              ...newValue.state,
-            },
-          })
-          localStorage.setItem(name, str)
+          const str = JSON.stringify({ state: newValue.state });
+          localStorage.setItem(name, str);
         },
         removeItem: (name) => localStorage.removeItem(name),
       },
-      partialize: (state) => ({ session: state.session }),
+      partialize: (state) => ({ 
+        user: state.user,
+        isAuthenticated: state.isAuthenticated 
+      }),
     }
   )
-)
+);

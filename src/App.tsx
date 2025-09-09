@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
-import { useEffect } from 'react'
 import LoginPage from './pages/LoginPage'
 import VendedorDashboard from './pages/VendedorDashboard'
 import SupervisorDashboard from './pages/SupervisorDashboard'
@@ -9,14 +8,7 @@ import LoadingSpinner from './components/LoadingSpinner'
 import OfflineIndicator from './components/OfflineIndicator'
 
 function App() {
-  const { user, isLoading, initializeAuth } = useAuthStore()
-
-  useEffect(() => {
-    const unsubscribe = initializeAuth()
-    return () => {
-      unsubscribe()
-    }
-  }, [initializeAuth])
+  const { user, isLoading } = useAuthStore()
 
   if (isLoading) {
     return (
@@ -33,11 +25,11 @@ function App() {
       <Routes>
         <Route 
           path="/login" 
-          element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} 
+          element={!user ? <LoginPage /> : <Navigate to="/" replace />} 
         />
         
         <Route 
-          path="/dashboard" 
+          path="/" 
           element={
             user ? (
               user.rol === 'vendedor' ? <VendedorDashboard /> :
@@ -48,11 +40,6 @@ function App() {
               <Navigate to="/login" replace />
             )
           } 
-        />
-        
-        <Route 
-          path="/" 
-          element={<Navigate to={user ? "/dashboard" : "/login"} replace />} 
         />
         
         <Route 

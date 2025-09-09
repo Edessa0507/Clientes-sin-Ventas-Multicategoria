@@ -3,23 +3,21 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// Configuración global de Supabase
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables')
+}
+
+// Configuración optimizada de Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false
   },
   global: {
     headers: {
-      'X-Client-Info': 'edessa-cliente-web/1.0.0'
+      'X-Client-Info': 'edessa-cliente-web/1.0.0',
+      'apikey': supabaseAnonKey
     }
   }
-})
-
-// Configuración para operaciones autenticadas
-export const getAuthHeaders = () => ({
-  'Authorization': `Bearer ${supabaseAnonKey}`,
-  'apikey': supabaseAnonKey,
-  'Content-Type': 'application/json'
 })

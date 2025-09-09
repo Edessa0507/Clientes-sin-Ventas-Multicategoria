@@ -71,15 +71,68 @@ export default function AdminDashboard() {
       setError(null)
 
       try {
-        const { data: result, error: rpcError } = await supabase.rpc('get_admin_dashboard_data')
-
-        if (rpcError) throw rpcError
-
-        if (result?.error) {
-          throw new Error(result.error)
+        // Datos mock para desarrollo hasta que las funciones RPC estén disponibles
+        const mockData = {
+          kpis: {
+            total_zonas: 3,
+            total_vendedores: 12,
+            total_supervisores: 3,
+            total_clientes: 75,
+            progreso_global: 82,
+            ultima_importacion: new Date().toISOString()
+          },
+          zonas: [
+            {
+              id: 'z1',
+              nombre: 'ZONA SANTIAGO',
+              vendedores: 4,
+              clientes: 25,
+              progreso: 85
+            },
+            {
+              id: 'z2',
+              nombre: 'ZONA SANTO DOMINGO',
+              vendedores: 4,
+              clientes: 30,
+              progreso: 78
+            },
+            {
+              id: 'z3',
+              nombre: 'ZONA SANTIAGO RODRIGUEZ',
+              vendedores: 4,
+              clientes: 20,
+              progreso: 90
+            }
+          ],
+          import_history: [
+            {
+              id: 'i1',
+              fecha: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+              archivo: 'datos_2024_01_15.xlsx',
+              filas: 150,
+              estado: 'completado',
+              usuario: 'GUSTAVO REYES'
+            },
+            {
+              id: 'i2',
+              fecha: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+              archivo: 'datos_2024_01_14.xlsx',
+              filas: 145,
+              estado: 'completado',
+              usuario: 'GUSTAVO REYES'
+            },
+            {
+              id: 'i3',
+              fecha: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+              archivo: 'datos_2024_01_13.xlsx',
+              filas: 140,
+              estado: 'completado',
+              usuario: 'GUSTAVO REYES'
+            }
+          ]
         }
 
-        setData(result)
+        setData(mockData)
 
       } catch (err: any) {
         console.error("Error fetching dashboard data:", err)
@@ -223,10 +276,10 @@ export default function AdminDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* KPIs Principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="card">
-            <div className="card-content">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center justify-between">
+                    <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Zonas</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {data?.kpis.total_zonas || 0}
@@ -234,13 +287,13 @@ export default function AdminDashboard() {
                 </div>
                 <BarChart3 className="h-8 w-8 text-primary-600" />
               </div>
-            </div>
-          </div>
+                </div>
+              </div>
 
-          <div className="card">
-            <div className="card-content">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center justify-between">
+                    <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Vendedores</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {data?.kpis.total_vendedores || 0}
@@ -248,13 +301,13 @@ export default function AdminDashboard() {
                 </div>
                 <Users className="h-8 w-8 text-primary-600" />
               </div>
-            </div>
-          </div>
+                </div>
+              </div>
 
-          <div className="card">
-            <div className="card-content">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center justify-between">
+                    <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Progreso Global</p>
                   <p className="text-2xl font-bold text-success-600">
                     {data?.kpis.progreso_global || 0}%
@@ -262,13 +315,13 @@ export default function AdminDashboard() {
                 </div>
                 <TrendingUp className="h-8 w-8 text-success-600" />
               </div>
-            </div>
-          </div>
+                </div>
+              </div>
 
-          <div className="card">
-            <div className="card-content">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center justify-between">
+                    <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Clientes</p>
                   <p className="text-2xl font-bold text-primary-600">
                     {data?.kpis.total_clientes || 0}
@@ -276,19 +329,19 @@ export default function AdminDashboard() {
                 </div>
                 <BarChart3 className="h-8 w-8 text-primary-600" />
               </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
         {/* Carga de Archivos Excel */}
         <div className="card mb-8">
-          <div className="card-header">
+              <div className="card-header">
             <h2 className="card-title">Carga de Datos Diarios</h2>
-            <p className="card-description">
+                <p className="card-description">
               Sube el archivo Excel diario para actualizar los datos del sistema
-            </p>
-          </div>
-          <div className="card-content">
+                </p>
+              </div>
+              <div className="card-content">
             <div className="space-y-4">
               <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
                 <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -304,13 +357,13 @@ export default function AdminDashboard() {
                   className="btn-primary"
                 >
                   {uploadStatus.isUploading ? 'Procesando...' : 'Seleccionar Archivo'}
-                </button>
-                <input
+                        </button>
+                      <input
                   ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
+                        type="file"
+                        accept=".xlsx,.xls"
                   onChange={handleFileUpload}
-                  className="hidden"
+                        className="hidden"
                 />
               </div>
 
@@ -325,7 +378,7 @@ export default function AdminDashboard() {
                       className="bg-primary-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${uploadStatus.progress}%` }}
                     />
-                  </div>
+                    </div>
                 </div>
               )}
 
@@ -348,13 +401,13 @@ export default function AdminDashboard() {
 
         {/* Resumen por Zonas */}
         <div className="card mb-8">
-          <div className="card-header">
+            <div className="card-header">
             <h2 className="card-title">Resumen por Zonas</h2>
-            <p className="card-description">
+              <p className="card-description">
               Progreso de activación por zona geográfica
-            </p>
-          </div>
-          <div className="card-content">
+              </p>
+            </div>
+            <div className="card-content">
             {data?.zonas && data.zonas.length > 0 ? (
               <div className="space-y-4">
                 {data.zonas.map((zona) => (
@@ -371,7 +424,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 ))}
-              </div>
+            </div>
             ) : (
               <p className="text-gray-500">No hay datos de zonas disponibles</p>
             )}
@@ -379,14 +432,14 @@ export default function AdminDashboard() {
         </div>
 
         {/* Historial de Importaciones */}
-        <div className="card">
-          <div className="card-header">
+          <div className="card">
+            <div className="card-header">
             <h2 className="card-title">Historial de Importaciones</h2>
-            <p className="card-description">
+              <p className="card-description">
               Últimas cargas de datos realizadas
-            </p>
-          </div>
-          <div className="card-content">
+              </p>
+            </div>
+            <div className="card-content">
             {data?.import_history && data.import_history.length > 0 ? (
               <div className="space-y-3">
                 {data.import_history.map((importacion) => (
@@ -414,7 +467,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 ))}
-              </div>
+            </div>
             ) : (
               <p className="text-gray-500">No hay historial de importaciones</p>
             )}

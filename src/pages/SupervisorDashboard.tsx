@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { Users, TrendingUp, BarChart3, LogOut, User } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 interface SupervisorData {
@@ -39,17 +38,49 @@ export default function SupervisorDashboard() {
       setError(null)
 
       try {
-        const { data: result, error: rpcError } = await supabase.rpc('get_supervisor_dashboard_data', {
-          p_supervisor_id: user.id
-        })
-
-        if (rpcError) throw rpcError
-
-        if (result?.error) {
-          throw new Error(result.error)
+        // Datos mock para desarrollo hasta que las funciones RPC estén disponibles
+        const mockData = {
+          supervisor: {
+            id: user.id,
+            codigo: user.codigo || 'S001',
+            nombre: user.nombre || 'SUPERVISOR PRINCIPAL',
+            zona: 'ZONA SANTIAGO'
+          },
+          vendedores: [
+            {
+              id: 'v1',
+              codigo: 'E001',
+              nombre: 'PEDRO JOSE BURGOS',
+              progreso: 85
+            },
+            {
+              id: 'v2',
+              codigo: 'E002',
+              nombre: 'MARIA RODRIGUEZ',
+              progreso: 72
+            },
+            {
+              id: 'v3',
+              codigo: 'E003',
+              nombre: 'CARLOS MARTINEZ',
+              progreso: 90
+            },
+            {
+              id: 'v4',
+              codigo: 'E004',
+              nombre: 'ANA LOPEZ',
+              progreso: 68
+            }
+          ],
+          kpis: {
+            total_vendedores: 4,
+            total_clientes: 25,
+            progreso_zona: 78,
+            clientes_activos: 20
+          }
         }
 
-        setData(result)
+        setData(mockData)
 
       } catch (err: any) {
         console.error("Error fetching dashboard data:", err)

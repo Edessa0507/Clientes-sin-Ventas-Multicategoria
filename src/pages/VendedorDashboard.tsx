@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { Search, LogOut, User } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 interface Cliente {
@@ -39,21 +38,65 @@ export default function VendedorDashboard() {
       setError(null)
 
       try {
-        const { data, error: rpcError } = await supabase.rpc('get_vendedor_dashboard_data', {
-          p_vendedor_id: user.id
-        })
+        // Datos mock para desarrollo hasta que las funciones RPC estén disponibles
+        const mockRutas = [
+          { id: 'ruta1', nombre: 'RUTA SANTIAGO CENTRO', clientesCount: 15 },
+          { id: 'ruta2', nombre: 'RUTA SANTIAGO NORTE', clientesCount: 12 },
+          { id: 'ruta3', nombre: 'RUTA SANTIAGO SUR', clientesCount: 8 }
+        ]
 
-        if (rpcError) throw rpcError
+        const mockClientes = [
+          {
+            id: 'CLI001',
+            nombre: 'SUPERMERCADO LA ECONOMIA',
+            ruta: 'RUTA SANTIAGO CENTRO',
+            categorias: {
+              ensure: 'Activado' as const,
+              chocolate: 'Falta' as const,
+              alpina: 'Activado' as const,
+              superAlim: 'Falta' as const
+            }
+          },
+          {
+            id: 'CLI002',
+            nombre: 'COLMADO DONA MARIA',
+            ruta: 'RUTA SANTIAGO CENTRO',
+            categorias: {
+              ensure: 'Falta' as const,
+              chocolate: 'Activado' as const,
+              alpina: 'Falta' as const,
+              superAlim: 'Activado' as const
+            }
+          },
+          {
+            id: 'CLI003',
+            nombre: 'MINIMARKET EL AHORRO',
+            ruta: 'RUTA SANTIAGO NORTE',
+            categorias: {
+              ensure: 'Activado' as const,
+              chocolate: 'Activado' as const,
+              alpina: 'Falta' as const,
+              superAlim: 'Falta' as const
+            }
+          },
+          {
+            id: 'CLI004',
+            nombre: 'TIENDA LOS HERMANOS',
+            ruta: 'RUTA SANTIAGO SUR',
+            categorias: {
+              ensure: 'Falta' as const,
+              chocolate: 'Falta' as const,
+              alpina: 'Activado' as const,
+              superAlim: 'Activado' as const
+            }
+          }
+        ]
 
-        if (data?.error) {
-          throw new Error(data.error)
-        }
-
-        setRutas(data.rutas || [])
-        setClientes(data.clientes || [])
+        setRutas(mockRutas)
+        setClientes(mockClientes)
         
-        if (data.rutas && data.rutas.length > 0) {
-          setSelectedRuta(data.rutas[0].id)
+        if (mockRutas.length > 0) {
+          setSelectedRuta(mockRutas[0].id)
         }
 
       } catch (err: any) {

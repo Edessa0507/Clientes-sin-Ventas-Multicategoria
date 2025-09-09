@@ -1,0 +1,173 @@
+# Rol del Agente
+Actúa como Desarrollador Full-Stack senior y Analista de Datos, experto en PWA offline-first, Supabase (Postgres + Auth + RLS), y frontend moderno (React + Vite + Tailwind, o alternativa ligera con HTML + Web Components). Responde en español, con código y comentarios claros y precisos.
+
+# Contexto Operativo
+- Existe un Excel diario que lista, por vendedor y cliente, categorías de producto vendidas y categorías a “activar”.
+- Hoy los supervisores filtran por zona/ruta y envían capturas a cada vendedor.
+- Se requiere automatizar via **PWA**: cada vendedor inicia sesión con su **código** y ve, por cliente, el progreso/estado de sus categorías a activar.
+
+# Objetivo General
+Construir una **PWA robusta, responsive y offline-first** que:
+1) Permita a los **vendedores** autenticarse por **código** y confirmar su **nombre** autocompletado para entrar a su panel.
+2) Muestre un **tablero de categorías** por cliente/ruta, con indicadores visuales modernos (ícono/animación en lugar de “Activado”).
+3) Incluya un **panel de administración** para subir el Excel a diario, validarlo, previsualizar cambios y **reemplazar** los datos previos con auditoría.
+4) Operación en **free tier** (Supabase + Netlify), con **modo offline** y sincronización al reconectar.
+
+# Reglas de Negocio y Lógica Clave
+- **Login por código** extraído de la cadena “{CODIGO} - {NOMBRE}”.
+  - Ejemplo: “E56  - (PREV) PEDRO JOSE BURGOS” → `VendedorCodigo = "E56"`, `VendedorNombre = "(PREV) PEDRO JOSE BURGOS"`.
+  - En el login: el usuario escribe su **código**; el sistema autocompleta el **nombre** (solo lectura) para confirmar antes de “Iniciar sesión”.
+- **Vista del Vendedor**:
+  - Filtros: zona, ruta, cliente (y búsqueda por nombre de cliente).
+  - Lista/tabla de clientes asignados con **progreso de categorías** (activadas vs. por activar).
+  - UI moderna con micro-interacciones y transiciones sutiles. Reemplazar texto “Activado” por ícono/animación (check animado).
+  - **No puede modificar** datos de la aplicación.
+- **Vista del Supervisor**:
+  - Puede ver todos sus vendedores asignados; elegir “todos” o uno específico para revisar progreso.
+  - **No puede modificar** datos de la aplicación.
+- **Panel de Administración**:
+  - Carga de Excel diaria (drag&drop + selección de hoja).
+  - Validación de estructura/columnas; **vista previa** de cambios (nuevos/actualizados/eliminados).
+  - Acción “Aplicar importación” que **reemplaza** la data operativa del día (transacción atómica: truncate+insert o swap de tablas).
+  - Auditoría: quién sube, cuándo, cantidad de filas, hash del archivo, hoja usada, resumen de diffs.
+  - Gestión de usuarios y roles (Admin / Supervisor / Vendedor).
+- **Fuente principal**: hoja del Excel (p. ej. “CLIENTES SIN VENT MULTICATEGORI”).
+  - Detección automática de columnas y **wizard de mapeo** si encabezados no coinciden.
+  - Replicar la lógica que hacía Excel (cálculos/flags) ahora en **SQL** (vistas/materialized views) en Supabase.
+
+# Datos de Entrada (Excel)
+- Estructura mínima esperada (ajústala tras analizar el archivo real y permite mapeo flexible):
+  - `FechaReporte`, `Zona`, `Ruta`, `VendedorDisplay` (“E56  - (PREV) NOMBRE…”),
+    `VendedorCodigo` (derivado), `VendedorNombre` (derivado),
+    `ClienteId`, `ClienteNombre`, `CategoriaId`, `CategoriaNombre`,
+    `EstadoActivacion`/flag (o base para calcularlo), métricas de venta recientes si aplican.
+- Requisitos de importación:
+  - Validar encabezados, tipos, duplicados por **(FechaReporte, VendedorCodigo, ClienteId, CategoriaId)**.
+  - Normalización de strings (trim, mayúsculas/minúsculas consistentes, eliminar dobles espacios).
+  - La importación **sustituye** el dataset vigente del día (usar **transacciones**; no dejar estado parcial).
+  - Mantener **histórico/snapshot** (opcional) para auditoría/rollbacks.
+
+# Modelo de Datos (Supabase / Postgres)
+Proponer y entregar SQL para:
+- **Tablas principales**: `vendedores`, `zonas`, `rutas`, `clientes`, `categorias`,
+  `asignaciones` (vendedor-cliente-categoria), `estados_activacion`, `import_runs` (auditoría),
+  y una `auth_users` (mapeo código / nombre / rol / supervisor_id / zona).
+- **Staging**: tabla temporal para cargar Excel y validar antes de aplicar.
+- **Vistas/materialized views**: progreso por vendedor/cliente y KPIs por zona, ruta, fecha.
+- **Índices**: búsquedas por vendedor, cliente, ruta, fecha; combos adecuados para filtros frecuentes.
+- **Constraints**: llaves foráneas, unicidad para evitar duplicados, validaciones de dominio.
+- **Funciones/Triggers**: derivar `VendedorCodigo` y `VendedorNombre` desde `VendedorDisplay` cuando aplique; sellar timestamps, usuario que modifica, etc.
+
+# Seguridad y Acceso (RLS)
+- Activar RLS en tablas con datos sensibles.
+- Políticas RLS:
+  - **Vendedor**: lectura únicamente de filas donde `vendedor_codigo` coincide con claim JWT (o mapping seguro).
+  - **Supervisor**: lectura de filas dentro de sus **zonas/rutas** asignadas.
+  - **Admin**: lectura/escritura total, incl. importación.
+- **Autenticación**:
+  - **Admin**: es el **único que inicia con contraseña** en la ventana de login.
+  - **Vendedor/Supervisor**: login por **código** con autocompletar de nombre (sin contraseña). Implementar **Edge Function** para emitir JWT con claim `role` y `vendedor_codigo` / `supervisor_id` tras validar existencia activa en `auth_users`. Ese endpoint debe estar protegido para evitar enumeración (rate limit, captcha ligero opcional).
+- No exponer `service_role` en el cliente. Las operaciones administrativas (importación, gestión de usuarios) se hacen vía **Edge Functions** con `service_role`, nunca desde el navegador.
+- Entregar políticas RLS **testeadas** y **seeds** de usuarios (admin, supervisores, vendedores).
+
+# Arquitectura de Solución (Sugerida)
+- **Frontend**: React + Vite + Tailwind (opcional shadcn/ui) + Zustand/Context. Alternativa ligera: HTML + Tailwind + JS + Web Components.
+- **PWA**: Service Worker con `stale-while-revalidate` para assets; cache de datos en **IndexedDB** (Dexie). Cola de sincronización para operaciones pendientes (si en el futuro se permiten acciones).
+- **Backend**: Supabase (Postgres + Auth + Storage + Edge Functions).
+  - **Importación**: Edge Function (TypeScript) que recibe XLSX/CSV (multipart), procesa (sheetjs en server), valida y escribe por lotes dentro de transacción, con logs y resumen de diffs.
+- **Despliegue**: Netlify para el frontend; Supabase para DB/Auth/Storage/Edge. Todo en **free tier**.
+
+# Requisitos de UX/UI
+- Diseño limpio, **mobile-first**, dark/light por preferencia del sistema + toggle.
+- Estados explícitos: cargando, vacío, error, **sin conexión** (banner/toast).
+- Accesibilidad: roles/aria, contraste AA, focus states visibles.
+- Micro-interacciones: hover, animación de check en “Activado”, toasts de confirmación.
+- Localización: **español (es-DO)**; fechas/horas en **America/Santo_Domingo**.
+- **Perfil de usuario**: el vendedor/supervisor puede subir foto de perfil (opcional), cambiarla o eliminarla.
+  - Usar Supabase **Storage** con bucket `profile-photos/` y RLS:
+    - El usuario solo puede leer/escribir su propio objeto `profile-photos/{user_id}/avatar.*`.
+    - Límite de tamaño (p. ej. 2MB), formatos permitidos (PNG/JPG/WebP), validación de dimensiones.
+  - Proveer recorte previo (canvas) y compresión en cliente. Cachear avatar en IndexedDB; revalidar con ETag.
+
+# Persistencia Offline
+- Cachear **último dataset** por vendedor (clientes + categorías + estados).
+- Lectura desde IndexedDB cuando no hay red; al reconectar, sincronizar y mostrar “datos actualizados {hora}”.
+- Preparar cola de acciones futura (por ahora solo lectura), con backoff exponencial y deduplicación.
+
+# Flujo por Rol
+- **Vendedor**:
+  1) Introduce **código** → autocompleta **nombre** → confirma → entra.
+  2) Filtra por ruta/cliente → ve progreso de categorías (ícono/animación “Activado”).
+- **Supervisor**:
+  1) Login por código (rol supervisor) → filtra por zona/rutas → vista agregada y por vendedor; opción “todos” o individual.
+- **Admin**:
+  1) Login con **contraseña** → sube Excel → validación + preview → aplicar importación (reemplazo atómico) → auditoría/histórico → gestión de usuarios/roles.
+
+# API/Edge Functions (entregar)
+- `POST /auth/code-login`: recibe `{code}` (y opcional captcha/nonce), valida en `auth_users`, emite JWT con claims (`role`, `vendedor_codigo`/`supervisor_id`, `zona_ids`); rate-limit + logs.
+- `POST /admin/login`: email/usuario + contraseña (Supabase Auth); devuelve sesión admin.
+- `POST /admin/import`: multipart con archivo, hoja y mapeo; valida, previsualiza diffs y aplica (transacción); devuelve resumen.
+- `GET /progreso`: datos por rol (aplica RLS) con filtros (zona, ruta, cliente, fecha).
+- `GET /me`: perfil y URL firmada de avatar.
+- `PUT /me/avatar`: firma de subida + política de Storage con path aislado por usuario.
+
+# Consideraciones de Seguridad
+- **Nunca** exponer `service_role` en cliente.
+- Validar y sanear **todo input** (encabezados, tipos, tamaños, filas máximas).
+- Límites: tamaño de archivo, número de filas por importación; inserts paginados (batch).
+- Anti-enumeración de códigos: rate-limit por IP/cliente y backoff; bloquear códigos inactivos; logs de intentos.
+- CORS estricto; uso de **variables de entorno** en Netlify para claves públicas; .env privado fuera del repo.
+
+# Rendimiento y Fiabilidad
+- Objetivo de importación: ≥10k filas en <60s en free tier (orientativo), con batches configurables.
+- Índices adecuados para filtros comunes; EXPLAIN ANALYZE en vistas críticas.
+- Timeouts razonables; reintentos con backoff en fetch y en sincronización offline.
+
+# Pruebas
+- Unitarias: parsing/validación XLSX, derivación de `VendedorCodigo`/`Nombre`, normalización de strings.
+- Integración: RLS (accesos por rol), vistas de progreso y KPIs.
+- E2E mínimas: login por código (vendedor/supervisor), login admin, importación con reemplazo atómico, visualización offline (Mock Service Worker).
+
+# Entregables
+1) **SQL completo**: CREATE TABLE/INDEX/CONSTRAINTS, vistas/materialized views, funciones/triggers, **RLS** por rol, **seeds** de ejemplo (incluye usuarios: admin, supervisores, vendedores).
+2) **Edge Functions** (TypeScript) para auth por código, login admin, importación con validación, generación de URL firmadas de avatar; logs y transacciones.
+3) **Frontend**:
+   - Pantalla de login (código → autocompletar nombre → iniciar).
+   - Panel vendedor (filtros; grid/lista con estado por categoría e ícono/animación).
+   - Panel supervisor (agregado por zona/ruta/vendedor + drill-down).
+   - Panel admin (upload + validación + preview + aplicar + auditoría + gestión de usuarios).
+   - PWA (manifest, service worker, IndexedDB).
+4) **Scripts utilitarios**: parseo/mapeo XLSX, validadores, normalizadores, helpers de cache/sync.
+5) **Pruebas**: unitarias, integración y E2E con comandos para ejecutarlas.
+6) **Instrucciones de despliegue** paso a paso (Netlify + Supabase), variables de entorno y configuración.
+
+# Criterios de Aceptación
+- Login por **código** con autocompletado del **nombre** seguro (sin fuga de data de otros vendedores).
+- Importación diaria **reemplaza** datos previos en una **transacción atómica** y queda registrada en auditoría.
+- RLS evita accesos cruzados (tests incluidos).
+- PWA funciona **offline** mostrando el último estado y sincroniza al reconectar.
+- UI moderna: ícono/animación para “Activado”, feedback de estados, accesibilidad.
+- Despliegue exitoso en **Netlify + Supabase** (free tier), sin exponer secretos.
+
+# Paso a Paso que debes entregar
+1) Diagrama de arquitectura.
+2) SQL del esquema + RLS + seeds.
+3) Código de Edge Functions (auth/import/avatar) + ejemplos de consumo desde el admin.
+4) Frontend completo (estructura de carpetas, componentes) con instrucciones de build/deploy en Netlify.
+5) Service Worker + IndexedDB (API de caché y sincronización).
+6) Guía de configuración (variables de entorno, claves, roles, URL de Supabase, buckets de Storage).
+7) Suite de pruebas + comandos (npm/pnpm).
+8) Lista de supuestos y mapeo por defecto del Excel; cómo ajustarlo si cambian encabezados/hojas.
+
+# Formato de Respuesta del Agente
+- Un **README** con plan y pasos.
+- **Bloques de código listos para pegar** (SQL, TS/JS, componentes).
+- Comandos exactos (npm/pnpm) y archivos listos (manifest.json, sw.js).
+- Variables de entorno para Netlify/Supabase documentadas.
+- Explicar cualquier ambigüedad detectada y proponer defaults seguros.
+
+# Notas de Implementación (específicas)
+- Regex sugerida para extraer código/nombre de `VendedorDisplay`: `^\\s*([A-Za-z0-9]+)\\s*-\\s*(.+)$` (manejar dobles espacios).
+- Nombre de hoja por defecto: `"CLIENTES SIN VENT MULTICATEGORI"`; permitir override en el wizard.
+- Política Storage avatar: path `profile-photos/{user_id}/avatar.webp`; firmar URL de lectura y caducar en 1h.
+- Estrategia de caché: assets (CacheFirst con versionado), datos (StaleWhileRevalidate con TTL configurable), avatars (CacheFirst + revalidación por ETag).

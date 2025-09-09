@@ -151,7 +151,7 @@ serve(async (req: Request): Promise<Response> => {
     console.log('Cliente Supabase creado correctamente');
 
     // Buscar usuario por código
-    const { data: user, error: userError } = await supabaseAdmin
+    let { data: user, error: userError } = await supabaseAdmin
       .from('auth_users')
       .select(`
         id,
@@ -169,7 +169,52 @@ serve(async (req: Request): Promise<Response> => {
       .eq('activo', true)
       .single()
 
-    if (userError || !user) {
+    // Si el usuario no existe y es el administrador, crearlo
+    if ((userError || !user) && normalizedCode === 'ADMIN001') {
+      console.log('Creando usuario administrador...')
+      
+      const { data: newUser, error: createError } = await supabaseAdmin
+        .from('auth_users')
+        .insert({
+          codigo: 'ADMIN001',
+          email: 'gustavo.reyes@edessa.do',
+          nombre_completo: 'GUSTAVO REYES',
+          rol: 'admin',
+          zona_id: null,
+          supervisor_id: null,
+          activo: true
+        })
+        .select(`
+          id,
+          codigo,
+          nombre_completo,
+          rol,
+          zona_id,
+          supervisor_id,
+          activo,
+          ultimo_login,
+          email,
+          created_at
+        `)
+        .single()
+
+      if (createError) {
+        console.error('Error al crear usuario administrador:', createError)
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Error al crear usuario administrador' 
+          }),
+          { 
+            status: 500, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        )
+      }
+
+      user = newUser
+      console.log('Usuario administrador creado exitosamente')
+    } else if (userError || !user) {
       // Log intento fallido (sin exponer información sensible)
       console.log(`Login fallido para código: ${normalizedCode}`)
       
@@ -186,7 +231,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // Validar que el rol permite login por código
-    if (!['vendedor', 'supervisor'].includes(user.rol)) {
+    if (!['vendedor', 'supervisor', 'admin'].includes(user.rol)) {
       return new Response(
         JSON.stringify({ 
           success: false, 

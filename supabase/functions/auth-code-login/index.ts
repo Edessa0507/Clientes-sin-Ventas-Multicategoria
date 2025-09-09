@@ -110,11 +110,24 @@ serve(async (req: Request): Promise<Response> => {
   console.log('apikey header presente:', !!apiKeyFromHeader);
   console.log('Service Role Key en variables de entorno:', serviceRoleKey ? 'Presente' : 'Ausente');
   console.log('Anon Key en variables de entorno:', anonKey ? 'Presente' : 'Ausente');
+  console.log('API Key proporcionada (primeros 10 chars):', providedApiKey ? providedApiKey.substring(0, 10) + '...' : 'Ninguna');
 
-  const isValidKey = providedApiKey && (providedApiKey === serviceRoleKey || providedApiKey === anonKey);
+  // Validar que tenemos al menos una de las claves
+  if (!serviceRoleKey && !anonKey) {
+    console.error('Error de configuración: No hay claves de API configuradas');
+    return handleError(new Error('Error de configuración del servidor'), 'validación de API Key');
+  }
+
+  // Validar la clave proporcionada
+  const isValidKey = providedApiKey && (
+    (serviceRoleKey && providedApiKey === serviceRoleKey) || 
+    (anonKey && providedApiKey === anonKey)
+  );
 
   if (!isValidKey) {
     console.error('Error de autenticación: API Key inválida o faltante');
+    console.error('Clave esperada (service):', serviceRoleKey ? serviceRoleKey.substring(0, 10) + '...' : 'No configurada');
+    console.error('Clave esperada (anon):', anonKey ? anonKey.substring(0, 10) + '...' : 'No configurada');
     return handleError(new Error('No autorizado: credenciales inválidas'), 'validación de API Key');
   }
   

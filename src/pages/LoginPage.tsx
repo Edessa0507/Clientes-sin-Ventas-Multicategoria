@@ -35,7 +35,7 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     clearError()
-    const finalCodigo = isAdminLogin ? 'admin' : data.codigo
+    const finalCodigo = isAdminLogin ? 'ADMIN001' : data.codigo
     await login(finalCodigo, data.password)
   }
 
@@ -105,7 +105,7 @@ export default function LoginPage() {
                   <input
                     {...register('codigo')}
                     type="text"
-                    placeholder={isAdminLogin ? 'admin@edessa.com' : 'E001'}
+                    placeholder={isAdminLogin ? 'ADMIN001' : 'E001'}
                     className="input pl-10"
                   />
                 </div>

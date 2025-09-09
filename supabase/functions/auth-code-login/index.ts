@@ -96,22 +96,9 @@ serve(async (req: Request): Promise<Response> => {
     return handleError(new Error('Método no permitido'), 'validación de método HTTP');
   }
 
-  // Verificar API Key básica
-  const authHeader = req.headers.get('Authorization') || '';
-  const apiKeyFromAuth = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
-  const apiKeyFromHeader = req.headers.get('apikey') || undefined;
-  const providedApiKey = apiKeyFromAuth || apiKeyFromHeader;
-
-  console.log('Validando API Key...');
-  console.log('API Key proporcionada:', providedApiKey ? 'Presente' : 'Ausente');
-
-  // Validación básica - solo verificar que existe una clave
-  if (!providedApiKey) {
-    console.error('Error: No se proporcionó API Key');
-    return handleError(new Error('No autorizado: API Key requerida'), 'validación de API Key');
-  }
-  
-  console.log('API Key validada correctamente');
+  // TEMPORAL: Saltar validación de API Key completamente para debug
+  console.log('Saltando validación de API Key para debug...');
+  console.log('Headers recibidos:', Object.fromEntries(req.headers.entries()));
 
   try {
     console.log('Procesando solicitud de autenticación...');

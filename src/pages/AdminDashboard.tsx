@@ -1,84 +1,191 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '../stores/authStore'
-import { Upload, FileSpreadsheet, Users, Database, LogOut, User, CheckCircle, AlertTriangle } from 'lucide-react'
+import { 
+  Users, 
+  TrendingUp, 
+  BarChart3, 
+  LogOut, 
+  User, 
+  Upload, 
+  FileText, 
+  CheckCircle,
+  XCircle
+} from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import toast from 'react-hot-toast'
+import LoadingSpinner from '../components/LoadingSpinner'
+import * as XLSX from 'xlsx'
+
+interface AdminData {
+  kpis: {
+    total_zonas: number
+    total_vendedores: number
+    total_supervisores: number
+    total_clientes: number
+    progreso_global: number
+    ultima_importacion: string
+  }
+  zonas: Array<{
+    id: string
+    nombre: string
+    vendedores: number
+    clientes: number
+    progreso: number
+  }>
+  import_history: Array<{
+    id: string
+    fecha: string
+    archivo: string
+    filas: number
+    estado: string
+    usuario: string
+  }>
+}
+
+interface UploadStatus {
+  isUploading: boolean
+  progress: number
+  message: string
+  error: string | null
+  success: boolean
+}
 
 export default function AdminDashboard() {
   const { user, logout } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'import' | 'users' | 'reports'>('import')
-  const [dragActive, setDragActive] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
+  const [data, setData] = useState<AdminData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>({
+    isUploading: false,
+    progress: 0,
+    message: '',
+    error: null,
+    success: false
+  })
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
-    }
-  }
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user || !user.id) return
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0]
-      if (file.type.includes('spreadsheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        setSelectedFile(file)
-        toast.success('Archivo seleccionado correctamente')
-      } else {
-        toast.error('Por favor selecciona un archivo Excel válido')
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const { data: result, error: rpcError } = await supabase.rpc('get_admin_dashboard_data')
+
+        if (rpcError) throw rpcError
+
+        if (result?.error) {
+          throw new Error(result.error)
+        }
+
+        setData(result)
+
+      } catch (err: any) {
+        console.error("Error fetching dashboard data:", err)
+        setError('No se pudieron cargar los datos. Intenta de nuevo más tarde.')
+      } finally {
+        setIsLoading(false)
       }
     }
-  }
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0])
-      toast.success('Archivo seleccionado correctamente')
-    }
-  }
+    fetchDashboardData()
+  }, [user])
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error('Por favor selecciona un archivo')
-      return
-    }
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
 
-    setIsUploading(true)
-    const uploadToast = toast.loading('Subiendo y procesando archivo...')
+    setUploadStatus({
+      isUploading: true,
+      progress: 0,
+      message: 'Procesando archivo...',
+      error: null,
+      success: false
+    })
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        throw new Error('No autenticado. Por favor, inicia sesión de nuevo.')
-      }
+      // Leer archivo Excel
+      const data = await file.arrayBuffer()
+      const workbook = XLSX.read(data, { type: 'array' })
+      const sheetName = workbook.SheetNames[0]
+      const worksheet = workbook.Sheets[sheetName]
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
 
-      const { data, error } = await supabase.functions.invoke('apply-import', {
-        body: selectedFile,
-        headers: {
-          'Content-Type': selectedFile.type,
-          'Authorization': `Bearer ${session.access_token}`
+      // Convertir a formato esperado
+      const headers = jsonData[0] as string[]
+      const rows = jsonData.slice(1) as any[][]
+      
+      const processedData = rows.map(row => {
+        const obj: any = {}
+        headers.forEach((header, index) => {
+          obj[header.toLowerCase().replace(/\s+/g, '_')] = row[index] || ''
+        })
+        return obj
+      })
+
+      setUploadStatus(prev => ({ ...prev, progress: 30, message: 'Enviando datos al servidor...' }))
+
+      // Enviar datos a la Edge Function
+      const { data: result, error: uploadError } = await supabase.functions.invoke('excel-upload', {
+        method: 'POST',
+        body: {
+          usuario_id: user?.id,
+          nombre_archivo: file.name,
+          datos: processedData
         }
       })
 
-      if (error) {
-        throw new Error(error.message)
+      if (uploadError) throw uploadError
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al procesar el archivo')
       }
 
-      toast.success(`Importación completada: ${data.message}`, { id: uploadToast })
-      setSelectedFile(null)
-    } catch (error: any) {
-      console.error('Error al importar:', error)
-      toast.error(error.message || 'Error desconocido al importar el archivo.', { id: uploadToast })
-    } finally {
-      setIsUploading(false)
+      setUploadStatus(prev => ({
+        ...prev,
+        progress: 100,
+        message: `Datos procesados exitosamente. ${result.filas_insertadas} registros insertados.`,
+        success: true,
+        isUploading: false
+      }))
+
+      // Recargar datos del dashboard
+      setTimeout(() => {
+        window.location.reload()
+      }, 2000)
+
+    } catch (err: any) {
+      console.error('Error uploading file:', err)
+      setUploadStatus(prev => ({
+        ...prev,
+        isUploading: false,
+        error: err.message || 'Error al procesar el archivo',
+        success: false
+      }))
     }
+  }
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click()
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center text-red-500 bg-red-100 p-4 rounded-lg">
+          {error}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -88,7 +195,7 @@ export default function AdminDashboard() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Panel de Administración
+                Panel de Administrador
               </h1>
             </div>
             
@@ -96,8 +203,8 @@ export default function AdminDashboard() {
               <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                 <User className="w-4 h-4" />
                 <span>{user?.nombre}</span>
-                <span className="text-xs bg-error-100 text-error-800 px-2 py-1 rounded-full">
-                  ADMIN
+                <span className="text-xs bg-primary-100 text-primary-800 px-2 py-1 rounded-full">
+                  {user?.codigo}
                 </span>
               </div>
               
@@ -114,266 +221,205 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs */}
-        <div className="border-b border-gray-200 dark:border-gray-700 mb-8">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('import')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'import'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4 inline mr-2" />
-              Importar Excel
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'users'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Users className="w-4 h-4 inline mr-2" />
-              Gestión de Usuarios
-            </button>
-            <button
-              onClick={() => setActiveTab('reports')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'reports'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Database className="w-4 h-4 inline mr-2" />
-              Reportes
-            </button>
-          </nav>
+        {/* KPIs Principales */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="card">
+            <div className="card-content">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Zonas</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {data?.kpis.total_zonas || 0}
+                  </p>
+                </div>
+                <BarChart3 className="h-8 w-8 text-primary-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-content">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Vendedores</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {data?.kpis.total_vendedores || 0}
+                  </p>
+                </div>
+                <Users className="h-8 w-8 text-primary-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-content">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Progreso Global</p>
+                  <p className="text-2xl font-bold text-success-600">
+                    {data?.kpis.progreso_global || 0}%
+                  </p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-success-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-content">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Clientes</p>
+                  <p className="text-2xl font-bold text-primary-600">
+                    {data?.kpis.total_clientes || 0}
+                  </p>
+                </div>
+                <BarChart3 className="h-8 w-8 text-primary-600" />
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Contenido de tabs */}
-        {activeTab === 'import' && (
-          <div className="space-y-6">
-            {/* Estadísticas de importación */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="card">
-                <div className="card-content">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Última Importación</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white">Hoy 14:30</p>
-                    </div>
-                    <CheckCircle className="h-8 w-8 text-success-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="card">
-                <div className="card-content">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Registros Procesados</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white">1,248</p>
-                    </div>
-                    <Database className="h-8 w-8 text-primary-600" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="card">
-                <div className="card-content">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Errores</p>
-                      <p className="text-lg font-bold text-gray-900 dark:text-white">0</p>
-                    </div>
-                    <AlertTriangle className="h-8 w-8 text-warning-500" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="card">
-                <div className="card-content">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Estado</p>
-                      <p className="text-lg font-bold text-success-600">Activo</p>
-                    </div>
-                    <CheckCircle className="h-8 w-8 text-success-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Área de carga de archivos */}
-            <div className="card">
-              <div className="card-header">
-                <h2 className="card-title">Importar Datos Diarios</h2>
-                <p className="card-description">
-                  Sube el archivo Excel con los datos actualizados de clientes y categorías
+        {/* Carga de Archivos Excel */}
+        <div className="card mb-8">
+          <div className="card-header">
+            <h2 className="card-title">Carga de Datos Diarios</h2>
+            <p className="card-description">
+              Sube el archivo Excel diario para actualizar los datos del sistema
+            </p>
+          </div>
+          <div className="card-content">
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Seleccionar archivo Excel
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  El archivo debe contener las columnas: SUPERVISOR, VENDEDOR, RUTA, CLIENTE, ENSURE, CHOCOLATE, ALPINA, SUPER DE ALIM., CONDICIONATE
                 </p>
-              </div>
-              <div className="card-content">
-                <div
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                    dragActive
-                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
+                <button
+                  onClick={triggerFileUpload}
+                  disabled={uploadStatus.isUploading}
+                  className="btn-primary"
                 >
-                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  
-                  {selectedFile ? (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        Archivo seleccionado:
+                  {uploadStatus.isUploading ? 'Procesando...' : 'Seleccionar Archivo'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </div>
+
+              {uploadStatus.isUploading && (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <LoadingSpinner size="sm" />
+                    <span className="text-sm text-gray-600">{uploadStatus.message}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadStatus.progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {uploadStatus.error && (
+                <div className="flex items-center space-x-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                  <XCircle className="h-5 w-5" />
+                  <span className="text-sm">{uploadStatus.error}</span>
+                </div>
+              )}
+
+              {uploadStatus.success && (
+                <div className="flex items-center space-x-2 text-green-600 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm">{uploadStatus.message}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Resumen por Zonas */}
+        <div className="card mb-8">
+          <div className="card-header">
+            <h2 className="card-title">Resumen por Zonas</h2>
+            <p className="card-description">
+              Progreso de activación por zona geográfica
+            </p>
+          </div>
+          <div className="card-content">
+            {data?.zonas && data.zonas.length > 0 ? (
+              <div className="space-y-4">
+                {data.zonas.map((zona) => (
+                  <div key={zona.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{zona.nombre}</p>
+                      <p className="text-sm text-gray-500">
+                        {zona.vendedores} vendedores • {zona.clientes} clientes
                       </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                      </p>
-                      <div className="flex justify-center space-x-2 mt-4">
-                        <button
-                          onClick={handleUpload}
-                          disabled={isUploading}
-                          className="btn-primary btn-md"
-                        >
-                          {isUploading ? 'Procesando...' : 'Importar Archivo'}
-                        </button>
-                        <button
-                          onClick={() => setSelectedFile(null)}
-                          className="btn-secondary btn-md"
-                        >
-                          Cancelar
-                        </button>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-primary-600">{zona.progreso}%</p>
+                      <p className="text-sm text-gray-500">Progreso</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">No hay datos de zonas disponibles</p>
+            )}
+          </div>
+        </div>
+
+        {/* Historial de Importaciones */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Historial de Importaciones</h2>
+            <p className="card-description">
+              Últimas cargas de datos realizadas
+            </p>
+          </div>
+          <div className="card-content">
+            {data?.import_history && data.import_history.length > 0 ? (
+              <div className="space-y-3">
+                {data.import_history.map((importacion) => (
+                  <div key={importacion.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{importacion.archivo}</p>
+                        <p className="text-sm text-gray-500">
+                          {importacion.usuario} • {new Date(importacion.fecha).toLocaleString()}
+                        </p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-lg font-medium text-gray-900 dark:text-white">
-                        Arrastra tu archivo Excel aquí
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        o haz clic para seleccionar
-                      </p>
-                      <input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                        id="file-upload"
-                      />
-                      <label
-                        htmlFor="file-upload"
-                        className="btn-primary btn-md cursor-pointer inline-flex"
-                      >
-                        Seleccionar Archivo
-                      </label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">{importacion.filas} filas</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        importacion.estado === 'completado' 
+                          ? 'bg-green-100 text-green-800' 
+                          : importacion.estado === 'error'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {importacion.estado}
+                      </span>
                     </div>
-                  )}
-                </div>
-
-                <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-                  <p>• Formatos soportados: .xlsx, .xls</p>
-                  <p>• Tamaño máximo: 10 MB</p>
-                  <p>• Hoja esperada: "CLIENTES SIN VENT MULTICATEGORI"</p>
-                </div>
+                  </div>
+                ))}
               </div>
-            </div>
-
-            {/* Historial de importaciones */}
-            <div className="card">
-              <div className="card-header">
-                <h2 className="card-title">Historial de Importaciones</h2>
-              </div>
-              <div className="card-content">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-800">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Fecha
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Archivo
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Registros
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          Estado
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          2024-01-16 14:30
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          clientes_sin_ventas_2024_01_16.xlsx
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          1,248
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="badge-success">Completado</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          2024-01-15 09:15
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          clientes_sin_ventas_2024_01_15.xlsx
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          1,156
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="badge-success">Completado</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            ) : (
+              <p className="text-gray-500">No hay historial de importaciones</p>
+            )}
           </div>
-        )}
-
-        {activeTab === 'users' && (
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title">Gestión de Usuarios</h2>
-              <p className="card-description">
-                Administra vendedores, supervisores y otros usuarios del sistema
-              </p>
-            </div>
-            <div className="card-content">
-              <p className="text-gray-500">Módulo de gestión de usuarios en desarrollo...</p>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'reports' && (
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title">Reportes y Análisis</h2>
-              <p className="card-description">
-                Genera reportes de progreso y análisis de datos
-              </p>
-            </div>
-            <div className="card-content">
-              <p className="text-gray-500">Módulo de reportes en desarrollo...</p>
-            </div>
-          </div>
-        )}
+        </div>
       </main>
     </div>
   )

@@ -210,10 +210,30 @@ export default function AdminDashboard() {
 
     } catch (err: any) {
       console.error('Error uploading file:', err)
+      
+      let errorMessage = 'Error al procesar el archivo';
+      
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (err.error) {
+        errorMessage = err.error;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      // Mensajes más específicos para errores comunes
+      if (errorMessage.includes('Edge Function returned a non-2xx status code')) {
+        errorMessage = 'Error del servidor. Por favor, verifica que el archivo tenga el formato correcto y vuelve a intentar.';
+      } else if (errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+        errorMessage = 'Error de conexión. Verifica tu conexión a internet e intenta nuevamente.';
+      } else if (errorMessage.includes('Datos requeridos faltantes')) {
+        errorMessage = 'El archivo no contiene los datos necesarios. Verifica que tenga las columnas correctas.';
+      }
+      
       setUploadStatus(prev => ({
         ...prev,
         isUploading: false,
-        error: err.message || 'Error al procesar el archivo',
+        error: errorMessage,
         success: false
       }))
     }

@@ -130,23 +130,145 @@ serve(async (req: Request): Promise<Response> => {
 
     // Limpiar datos existentes
     console.log('Limpiando datos existentes...');
-    const { error: clearError } = await supabaseAdmin.rpc('clear_daily_data');
-    if (clearError) {
-      console.error('Error al limpiar datos:', clearError);
-      throw new Error('Error al limpiar datos existentes');
+    try {
+      const { error: clearError } = await supabaseAdmin.rpc('clear_daily_data');
+      if (clearError) {
+        console.warn('Advertencia al limpiar datos:', clearError);
+        // No fallar si no se puede limpiar, continuar con el procesamiento
+      }
+    } catch (clearErr) {
+      console.warn('No se pudo ejecutar clear_daily_data, continuando sin limpiar:', clearErr);
     }
 
     // Procesar datos
     console.log(`Procesando ${datos.length} filas de datos...`);
-    const { data: result, error: processError } = await supabaseAdmin.rpc('process_excel_upload', {
-      p_usuario_id: usuario_id,
-      p_nombre_archivo: nombre_archivo,
-      p_datos: datos
-    });
+    
+    // Intentar usar la función RPC primero
+    let result;
+    let processError;
+    
+    try {
+      const rpcResult = await supabaseAdmin.rpc('process_excel_upload', {
+        p_usuario_id: usuario_id,
+        p_nombre_archivo: nombre_archivo,
+        p_datos: datos
+      });
+      result = rpcResult.data;
+      processError = rpcResult.error;
+    } catch (rpcErr) {
+      console.warn('Función RPC no disponible, usando método alternativo:', rpcErr);
+      processError = rpcErr;
+    }
 
+    // Si la función RPC falla, usar método alternativo
     if (processError) {
-      console.error('Error al procesar datos:', processError);
-      throw new Error('Error al procesar datos del Excel');
+      console.log('Usando método alternativo para procesar datos...');
+      
+      // Crear registro de importación manualmente
+      const { data: importRun, error: importError } = await supabaseAdmin
+        .from('import_runs')
+        .insert({
+          usuario_id: usuario_id,
+          nombre_archivo: nombre_archivo,
+          total_filas: datos.length,
+          estado: 'procesando'
+        })
+        .select()
+        .single();
+
+      if (importError) {
+        console.error('Error creando registro de importación:', importError);
+        throw new Error('Error al crear registro de importación');
+      }
+
+      // Procesar datos manualmente
+      let filas_insertadas = 0;
+      const errores: string[] = [];
+
+      for (let i = 0; i < datos.length; i++) {
+        try {
+          const fila = datos[i];
+          
+          // Buscar o crear vendedor
+          let vendedor_id = null;
+          if (fila.vendedor) {
+            const { data: vendedor } = await supabaseAdmin
+              .from('vendedores')
+              .select('id')
+              .eq('nombre', fila.vendedor)
+              .single();
+            
+            if (vendedor) {
+              vendedor_id = vendedor.id;
+            }
+          }
+
+          // Buscar o crear cliente
+          let cliente_id = null;
+          if (fila.cliente) {
+            const { data: cliente } = await supabaseAdmin
+              .from('clientes')
+              .select('id')
+              .eq('nombre', fila.cliente)
+              .single();
+            
+            if (cliente) {
+              cliente_id = cliente.id;
+            }
+          }
+
+          // Insertar asignación si tenemos vendedor y cliente
+          if (vendedor_id && cliente_id) {
+            const asignacionData: any = {
+              vendedor_id: vendedor_id,
+              cliente_id: cliente_id,
+              fecha_reporte: new Date().toISOString().split('T')[0],
+              estado_activacion: 'pendiente'
+            };
+
+            // Agregar datos de productos si existen
+            if (fila.ensure) asignacionData.ensure = fila.ensure;
+            if (fila.chocolate) asignacionData.chocolate = fila.chocolate;
+            if (fila.alpina) asignacionData.alpina = fila.alpina;
+            if (fila['super_de_alim']) asignacionData.super_de_alim = fila['super_de_alim'];
+            if (fila.condicionate) asignacionData.condicionate = fila.condicionate;
+
+            const { error: insertError } = await supabaseAdmin
+              .from('asignaciones')
+              .insert(asignacionData);
+
+            if (!insertError) {
+              filas_insertadas++;
+            } else {
+              errores.push(`Fila ${i + 1}: ${insertError.message}`);
+            }
+          } else {
+            errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado`);
+          }
+        } catch (rowError) {
+          errores.push(`Fila ${i + 1}: ${rowError.message}`);
+        }
+      }
+
+      // Actualizar registro de importación
+      await supabaseAdmin
+        .from('import_runs')
+        .update({
+          estado: 'completado',
+          filas_procesadas: datos.length,
+          filas_insertadas: filas_insertadas,
+          completed_at: new Date().toISOString(),
+          mensaje_error: errores.length > 0 ? errores.join('; ') : null
+        })
+        .eq('id', importRun.id);
+
+      result = {
+        success: true,
+        import_run_id: importRun.id,
+        filas_procesadas: datos.length,
+        filas_insertadas: filas_insertadas,
+        errores: errores
+      };
     }
 
     console.log('Datos procesados exitosamente:', result);

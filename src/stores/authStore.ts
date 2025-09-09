@@ -47,12 +47,7 @@ export const useAuthStore = create<AuthState>()(
           console.log('Llamando a la función de autenticación...');
           const { data, error } = await supabase.functions.invoke('auth-code-login', {
             method: 'POST',
-            body: { code: codigo, password: password || undefined },
-            // No enviar claves sensibles desde el frontend
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Client-Info': 'edessa-web/1.0.0'
-            }
+            body: { code: codigo, password: password || undefined }
           });
           
           console.log('Respuesta de la función de autenticación:', { data, error });

@@ -3,284 +3,60 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
 
-interface UploadRequest {
-  usuario_id: string
-  nombre_archivo: string
-  datos: any[]
-}
-
-interface UploadResponse {
-  success: boolean
-  message?: string
-  filas_procesadas?: number
-  filas_insertadas?: number
-  errores?: string[]
-  debug_info?: any
-}
-
 serve(async (req: Request): Promise<Response> => {
-  console.log('=== INICIO EXCEL-UPLOAD SIMPLIFICADO ===');
+  console.log('=== FUNCION SIMPLE ===');
   
-  const origin = req.headers.get('origin') || '*';
-  const corsHeaders = getCorsHeaders(origin);
+  const corsHeaders = getCorsHeaders(req.headers.get('origin') || '*');
 
-  const handleError = (error: unknown, context: string): Response => {
-    console.error(`ERROR en ${context}:`, error);
-    
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        context: context
-      }),
-      { 
-        status: 500,
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-  };
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ success: false, error: 'Método no permitido' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 
   try {
-    // OPTIONS
-    if (req.method === 'OPTIONS') {
-      return new Response('ok', { headers: corsHeaders });
+    const body = await req.json();
+    console.log('Body recibido:', typeof body, Object.keys(body || {}));
+
+    const { datos } = body;
+    if (!Array.isArray(datos)) {
+      return new Response(JSON.stringify({ success: false, error: 'Datos no es array' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Solo POST
-    if (req.method !== 'POST') {
-      return handleError(new Error('Método no permitido'), 'validación método');
-    }
+    console.log(`Datos: ${datos.length} filas`);
+    console.log('Primera fila:', datos[0]);
 
-    console.log('Procesando POST...');
-
-    // Parsear JSON
-    let body;
-    try {
-      body = await req.json();
-      console.log('JSON parseado correctamente');
-    } catch (e) {
-      return handleError(e, 'parseo JSON');
-    }
-
-    // Validar datos
-    const { usuario_id, nombre_archivo, datos } = body;
-    
-    if (!usuario_id || !nombre_archivo || !datos) {
-      return handleError(new Error('Datos requeridos faltantes'), 'validación datos');
-    }
-
-    if (!Array.isArray(datos) || datos.length === 0) {
-      return handleError(new Error('No hay datos para procesar'), 'validación datos');
-    }
-
-    console.log(`Datos válidos: ${datos.length} filas`);
-
-    // Crear cliente Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://xaohatfpnsoszduxgdyp.supabase.co';
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhhb2hhdGZwbnNvc3pkdXhnZHlwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzI5MzEzMiwiZXhwIjoyMDcyODY5MTMyfQ._7UR1-L1Jx4YQz-bgp9u_vU-7UHqimt_ErakI9av6cI';
-    
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-    console.log('Cliente Supabase creado');
-
-    // Normalizador mejorado
-    const normalizeName = (value: unknown): string => {
-      let str = (value ?? '').toString().trim();
-      
-      // Extraer nombre después de "CODIGO - "
-      const match = str.match(/^[A-Z0-9\s-]+\s*-\s*(.+)$/);
-      if (match) {
-        str = match[1].trim();
-      }
-      
-      return str.normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .toUpperCase()
-        .replace(/\s+/g, ' ');
-    };
-
-    // Obtener datos básicos
-    console.log('Obteniendo vendedores...');
-    const { data: vendedores, error: errorVendedores } = await supabaseAdmin
-      .from('vendedores')
-      .select('id, codigo, nombre_completo');
-    
-    if (errorVendedores) {
-      return handleError(errorVendedores, 'obtener vendedores');
-    }
-
-    console.log('Obteniendo clientes...');
-    const { data: clientes, error: errorClientes } = await supabaseAdmin
-      .from('clientes')
-      .select('id, codigo, nombre');
-    
-    if (errorClientes) {
-      return handleError(errorClientes, 'obtener clientes');
-    }
-
-    console.log('Obteniendo categorías...');
-    const { data: categorias, error: errorCategorias } = await supabaseAdmin
-      .from('categorias')
-      .select('id, codigo, nombre');
-    
-    if (errorCategorias) {
-      return handleError(errorCategorias, 'obtener categorías');
-    }
-
-    console.log('Obteniendo zona y ruta...');
-    const { data: primeraZona } = await supabaseAdmin
-      .from('zonas')
-      .select('id')
-      .eq('activa', true)
-      .limit(1)
-      .single();
-      
-    const { data: primeraRuta } = await supabaseAdmin
-      .from('rutas')
-      .select('id')
-      .eq('activa', true)
-      .limit(1)
-      .single();
-
-    // Crear mapas
-    const vendedorMap = new Map<string, string>();
-    const clienteMap = new Map<string, string>();
-
-    (vendedores || []).forEach((v: any) => {
-      vendedorMap.set(normalizeName(v.nombre_completo), v.id);
-      vendedorMap.set(normalizeName(v.codigo), v.id);
-    });
-
-    (clientes || []).forEach((c: any) => {
-      clienteMap.set(normalizeName(c.nombre), c.id);
-      clienteMap.set(normalizeName(c.codigo), c.id);
-    });
-
-    console.log(`Mapas creados - V: ${vendedorMap.size}, C: ${clienteMap.size}`);
-
-    // Identificar clientes faltantes
-    const clientesFaltantes = new Set<string>();
-    datos.forEach(fila => {
-      const clienteNorm = normalizeName(fila.cliente);
-      if (clienteNorm && !clienteMap.has(clienteNorm)) {
-        clientesFaltantes.add(clienteNorm);
-      }
-    });
-
-    console.log(`Clientes faltantes: ${clientesFaltantes.size}`);
-
-    // Crear clientes faltantes
-    const clientesCreados = new Map<string, string>();
-    if (clientesFaltantes.size > 0 && primeraZona && primeraRuta) {
-      for (const nombreCliente of clientesFaltantes) {
-        try {
-          const { data: nuevoCliente, error: errorCrear } = await supabaseAdmin
-            .from('clientes')
-            .insert({
-              codigo: `CLI${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
-              nombre: nombreCliente,
-              zona_id: primeraZona.id,
-              ruta_id: primeraRuta.id,
-              activo: true
-            })
-            .select('id, nombre')
-            .single();
-
-          if (!errorCrear && nuevoCliente) {
-            clienteMap.set(normalizeName(nombreCliente), nuevoCliente.id);
-            clientesCreados.set(nombreCliente, nuevoCliente.id);
-            console.log(`Cliente creado: ${nombreCliente}`);
-          }
-        } catch (e) {
-          console.log(`Error creando cliente ${nombreCliente}:`, e);
-        }
-      }
-    }
-
-    // Procesar asignaciones
-    const asignaciones: any[] = [];
-    const errores: string[] = [];
-
-    for (let i = 0; i < datos.length; i++) {
-      const fila = datos[i];
-      const vendedorNorm = normalizeName(fila.vendedor);
-      const clienteNorm = normalizeName(fila.cliente);
-
-      const vendedorId = vendedorMap.get(vendedorNorm);
-      const clienteId = clienteMap.get(clienteNorm);
-
-      if (!vendedorId || !clienteId) {
-        errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado`);
-        continue;
-      }
-
-      const categoriaId = categorias?.[0]?.id;
-      if (!categoriaId) {
-        errores.push(`Fila ${i + 1}: No hay categorías disponibles`);
-        continue;
-      }
-
-      const asignacion = {
-        vendedor_id: vendedorId,
-        cliente_id: clienteId,
-        categoria_id: categoriaId,
-        fecha_reporte: new Date().toISOString().split('T')[0],
-        estado_activacion: 'pendiente'
-      };
-
-      asignaciones.push(asignacion);
-    }
-
-    console.log(`Asignaciones a insertar: ${asignaciones.length}`);
-
-    // Insertar asignaciones
-    let filasInsertadas = 0;
-    if (asignaciones.length > 0) {
-      const { error: insertError } = await supabaseAdmin
-        .from('asignaciones')
-        .insert(asignaciones);
-      
-      if (insertError) {
-        return handleError(insertError, 'insertar asignaciones');
-      }
-      
-      filasInsertadas = asignaciones.length;
-      console.log(`${filasInsertadas} asignaciones insertadas`);
-    }
-
-    // Respuesta exitosa
-    const response: UploadResponse = {
+    // Solo devolver éxito sin procesar nada
+    return new Response(JSON.stringify({
       success: true,
-      message: `Archivo procesado exitosamente. ${filasInsertadas} registros insertados de ${datos.length} procesados.`,
+      message: `Recibido correctamente. ${datos.length} filas.`,
       filas_procesadas: datos.length,
-      filas_insertadas: filasInsertadas,
-      errores: errores,
+      filas_insertadas: 0,
       debug_info: {
-        vendedores_encontrados: vendedorMap.size,
-        clientes_encontrados: clienteMap.size,
-        categorias_encontradas: categorias?.length || 0,
-        clientes_creados: Array.from(clientesCreados.entries()).map(([nombre, id]) => ({ nombre, id })),
-        errores_detallados: errores.slice(0, 5)
+        primera_fila: datos[0],
+        total_filas: datos.length
       }
-    };
-
-    console.log('Procesamiento completado exitosamente');
-
-    return new Response(
-      JSON.stringify(response),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
 
   } catch (error) {
-    console.error('Error general:', error);
-    return handleError(error, 'manejo general');
+    console.error('Error:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Error desconocido' 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 });

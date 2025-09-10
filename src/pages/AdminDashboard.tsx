@@ -176,24 +176,30 @@ export default function AdminDashboard() {
             // Normalizar nombres de columnas
             let normalizedHeader = header.toString().trim()
             
-            // Mapear nombres específicos conocidos
-            if (normalizedHeader.toUpperCase() === 'VENDEDOR') {
+            // Mapear nombres específicos conocidos con mayor flexibilidad
+            const headerUpper = normalizedHeader.toUpperCase()
+            
+            if (headerUpper.includes('VENDEDOR')) {
               normalizedHeader = 'vendedor'
-            } else if (normalizedHeader.toUpperCase() === 'CLIENTE') {
+            } else if (headerUpper.includes('CLIENTE')) {
               normalizedHeader = 'cliente'
-            } else if (normalizedHeader.toUpperCase() === 'ENSURE') {
+            } else if (headerUpper.includes('SUPERVISOR')) {
+              normalizedHeader = 'supervisor'
+            } else if (headerUpper.includes('RUTA')) {
+              normalizedHeader = 'ruta'
+            } else if (headerUpper.includes('ENSURE')) {
               normalizedHeader = 'ensure'
-            } else if (normalizedHeader.toUpperCase() === 'CHOCOLATE') {
+            } else if (headerUpper.includes('CHOCOLATE')) {
               normalizedHeader = 'chocolate'
-            } else if (normalizedHeader.toUpperCase() === 'ALPINA') {
+            } else if (headerUpper.includes('ALPINA')) {
               normalizedHeader = 'alpina'
-            } else if (normalizedHeader.toUpperCase() === 'SUPER DE ALIM' || normalizedHeader.toUpperCase() === 'SUPER DE ALIM.') {
+            } else if (headerUpper.includes('SUPER DE ALIM') || headerUpper.includes('SUPER DE ALIM.')) {
               normalizedHeader = 'super_de_alim'
-            } else if (normalizedHeader.toUpperCase() === 'CONDICIONATE') {
+            } else if (headerUpper.includes('CONDICIONATE')) {
               normalizedHeader = 'condicionate'
             } else {
               // Conversión genérica para otros casos
-              normalizedHeader = normalizedHeader.toLowerCase().replace(/\s+/g, '_')
+              normalizedHeader = normalizedHeader.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
             }
             
             const cell = row[index]
@@ -203,6 +209,30 @@ export default function AdminDashboard() {
         return obj
       })
 
+      // Validar que tenemos los datos mínimos requeridos
+      const requiredColumns = ['vendedor', 'cliente']
+      const missingColumns = requiredColumns.filter(col => 
+        !processedData.some(row => row[col] && row[col].toString().trim() !== '')
+      )
+      
+      if (missingColumns.length > 0) {
+        throw new Error(`Faltan columnas requeridas: ${missingColumns.join(', ')}`)
+      }
+
+      // Filtrar filas vacías
+      const validData = processedData.filter(row => 
+        row.vendedor && row.cliente && 
+        row.vendedor.toString().trim() !== '' && 
+        row.cliente.toString().trim() !== ''
+      )
+
+      if (validData.length === 0) {
+        throw new Error('No se encontraron datos válidos en el archivo')
+      }
+
+      console.log(`Datos procesados: ${processedData.length} filas, ${validData.length} válidas`)
+      console.log('Primera fila de ejemplo:', validData[0])
+
       setUploadStatus(prev => ({ ...prev, progress: 30, message: 'Enviando datos al servidor...' }))
 
       // Enviar datos a la Edge Function
@@ -211,7 +241,7 @@ export default function AdminDashboard() {
         body: {
           usuario_id: user?.id,
           nombre_archivo: file.name,
-          datos: processedData
+          datos: validData
         }
       })
 

@@ -18,37 +18,37 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: '/Clientes-sin-Ventas-Multicategoria/',
+        start_url: '/Clientes-sin-Ventas-Multicategoria/',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: '/Clientes-sin-Ventas-Multicategoria/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/Clientes-sin-Ventas-Multicategoria/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/Clientes-sin-Ventas-Multicategoria/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: 'apple-touch-icon.png',
+            src: '/Clientes-sin-Ventas-Multicategoria/apple-touch-icon.png',
             sizes: '180x180',
             type: 'image/png'
           },
           {
-            src: 'favicon.ico',
+            src: '/Clientes-sin-Ventas-Multicategoria/favicon.ico',
             sizes: '32x32',
             type: 'image/x-icon'
           },
           {
-            src: 'masked-icon.svg',
+            src: '/Clientes-sin-Ventas-Multicategoria/masked-icon.svg',
             sizes: '512x512',
             type: 'image/svg+xml'
           }

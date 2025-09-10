@@ -187,7 +187,7 @@ export default function AdminDashboard() {
               normalizedHeader = 'chocolate'
             } else if (normalizedHeader.toUpperCase() === 'ALPINA') {
               normalizedHeader = 'alpina'
-            } else if (normalizedHeader.toUpperCase() === 'SUPER DE ALIM') {
+            } else if (normalizedHeader.toUpperCase() === 'SUPER DE ALIM' || normalizedHeader.toUpperCase() === 'SUPER DE ALIM.') {
               normalizedHeader = 'super_de_alim'
             } else if (normalizedHeader.toUpperCase() === 'CONDICIONATE') {
               normalizedHeader = 'condicionate'
@@ -196,7 +196,8 @@ export default function AdminDashboard() {
               normalizedHeader = normalizedHeader.toLowerCase().replace(/\s+/g, '_')
             }
             
-            obj[normalizedHeader] = row[index] || ''
+            const cell = row[index]
+            obj[normalizedHeader] = (cell === undefined || cell === null) ? '' : cell.toString().trim()
           }
         })
         return obj

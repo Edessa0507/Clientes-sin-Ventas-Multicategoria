@@ -3,23 +3,30 @@
   <head>
     <meta charset="utf-8">
     <title>Redirecting...</title>
-    <meta http-equiv="refresh" content="0; url=/Clientes-sin-Ventas-Multicategoria/">
     <script>
       (function() {
-        var path = window.location.pathname;
         var base = '/Clientes-sin-Ventas-Multicategoria';
-        // Si ya estamos bajo base, ir al index conservando el path relativo
-        if (path.startsWith(base)) {
-          var relative = path.replace(base, '');
-          var target = base + '/' + (relative || '');
-          window.location.replace(target);
-        } else {
-          window.location.replace(base + '/');
+        var path = window.location.pathname;
+        var search = window.location.search || '';
+        var hash = window.location.hash || '';
+
+        // Si ya estamos en la raíz del sitio (base o base/), no redirigir para evitar loops
+        if (path === base || path === base + '/') {
+          // Nada: dejar que el index del sitio se cargue normalmente
+          console.log('SPA fallback: en base, no redirigir');
+          return;
         }
+
+        // Redirigir a la raíz con el path original codificado como hash (no rompe rutas)
+        var remaining = path.replace(base, '');
+        var target = base + '/#' + remaining.replace(/^\//, '');
+        if (search) target += encodeURIComponent(search);
+        if (hash) target += hash;
+        window.location.replace(target);
       })();
     </script>
   </head>
   <body>
-    Redirigiendo...
+    Redirigiendo a la aplicación...
   </body>
 </html>

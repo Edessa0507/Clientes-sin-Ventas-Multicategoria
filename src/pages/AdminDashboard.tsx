@@ -252,39 +252,24 @@ export default function AdminDashboard() {
       }
 
       // Mostrar información de debug si está disponible
-      let debugMessage = `Datos procesados exitosamente. ${result.filas_insertadas} registros insertados.`;
+      let debugMessage = `Datos procesados exitosamente. ${result.filas_insertadas || 0} registros insertados.`;
       
       if (result.debug_info) {
         debugMessage += `\n\nDebug Info:`;
-        debugMessage += `\n- Vendedores encontrados: ${result.debug_info.vendedores_encontrados}`;
-        debugMessage += `\n- Clientes encontrados: ${result.debug_info.clientes_encontrados}`;
-        debugMessage += `\n- Categorías encontradas: ${result.debug_info.categorias_encontradas}`;
+        debugMessage += `\n- Vendedores procesados: ${result.debug_info.vendedores_procesados || 0}`;
+        debugMessage += `\n- Clientes procesados: ${result.debug_info.clientes_procesados || 0}`;
+        debugMessage += `\n- Categorías procesadas: ${result.debug_info.categorias_procesadas || 0}`;
+        debugMessage += `\n- Asignaciones insertadas: ${result.debug_info.asignaciones_insertadas || 0}`;
+        debugMessage += `\n- Fecha de reporte: ${result.debug_info.fecha_reporte || 'N/A'}`;
+        debugMessage += `\n- Filas con errores: ${result.debug_info.filas_con_errores || 0}`;
+        debugMessage += `\n- Filas procesadas exitosamente: ${result.debug_info.filas_procesadas_exitosas || 0}`;
+        debugMessage += `\n- Vendedores creados: ${result.debug_info.vendedores_creados || 0}`;
+        debugMessage += `\n- Clientes creados: ${result.debug_info.clientes_creados || 0}`;
         
-        if (result.debug_info.errores_detallados && result.debug_info.errores_detallados.length > 0) {
-          debugMessage += `\n\nErrores de matching:`;
-          result.debug_info.errores_detallados.forEach((error: string, index: number) => {
-            debugMessage += `\n${index + 1}. ${error}`;
-          });
-        }
-        
-        if (result.debug_info.debug_vendedores && result.debug_info.debug_vendedores.length > 0) {
-          debugMessage += `\n\nVendedores en BD:`;
-          result.debug_info.debug_vendedores.forEach((v: any, index: number) => {
-            debugMessage += `\n${index + 1}. "${v.nombre_completo}" -> "${v.normalizado}"`;
-          });
-        }
-        
-        if (result.debug_info.debug_clientes && result.debug_info.debug_clientes.length > 0) {
-          debugMessage += `\n\nClientes en BD:`;
-          result.debug_info.debug_clientes.forEach((c: any, index: number) => {
-            debugMessage += `\n${index + 1}. "${c.nombre}" -> "${c.normalizado}"`;
-          });
-        }
-        
-        if (result.debug_info.primera_fila) {
+        if (result.debug_info.primera_fila_ejemplo) {
           debugMessage += `\n\nPrimera fila del Excel:`;
-          debugMessage += `\n- Vendedor: "${result.debug_info.primera_fila.vendedor}"`;
-          debugMessage += `\n- Cliente: "${result.debug_info.primera_fila.cliente}"`;
+          debugMessage += `\n- Vendedor: "${result.debug_info.primera_fila_ejemplo.vendedor}"`;
+          debugMessage += `\n- Cliente: "${result.debug_info.primera_fila_ejemplo.cliente}"`;
         }
       }
 

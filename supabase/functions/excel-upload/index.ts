@@ -183,9 +183,13 @@ serve(async (req: Request): Promise<Response> => {
       clienteIdMap.set(c.codigo, c.id);
     });
 
+    console.log(`Mapas creados: Vendedores=${vendedorIdMap.size}, Clientes=${clienteIdMap.size}`);
+
     // Procesar asignaciones por cada categoría
     const asignaciones: any[] = [];
     const categoriasExcel = ['ensure', 'chocolate', 'alpina', 'super_de_alim', 'condicionate'];
+    let filasProcesadas = 0;
+    let filasConErrores = 0;
 
     for (const fila of datos) {
       const vendedorParsed = parseVendedor(fila.vendedor || '');
@@ -194,7 +198,15 @@ serve(async (req: Request): Promise<Response> => {
       const vendedorId = vendedorIdMap.get(vendedorParsed.codigo);
       const clienteId = clienteIdMap.get(clienteParsed.codigo);
 
-      if (!vendedorId || !clienteId) continue;
+      if (!vendedorId || !clienteId) {
+        filasConErrores++;
+        if (filasConErrores <= 5) { // Solo mostrar los primeros 5 errores
+          console.log(`Error en fila: Vendedor=${vendedorParsed.codigo} (${vendedorId}), Cliente=${clienteParsed.codigo} (${clienteId})`);
+        }
+        continue;
+      }
+
+      filasProcesadas++;
 
       // Procesar cada categoría
       categoriasExcel.forEach(categoriaKey => {
@@ -214,6 +226,8 @@ serve(async (req: Request): Promise<Response> => {
         }
       });
     }
+
+    console.log(`Filas procesadas: ${filasProcesadas}, Con errores: ${filasConErrores}`);
 
     console.log(`Asignaciones a insertar: ${asignaciones.length}`);
 
@@ -245,7 +259,12 @@ serve(async (req: Request): Promise<Response> => {
         clientes_procesados: clientesMap.size,
         categorias_procesadas: categoriasExcel.length,
         asignaciones_insertadas: filasInsertadas,
-        fecha_reporte: hoy
+        fecha_reporte: hoy,
+        filas_con_errores: filasConErrores,
+        filas_procesadas_exitosas: filasProcesadas,
+        vendedores_creados: vendedoresCreados.length,
+        clientes_creados: clientesCreados.length,
+        primera_fila_ejemplo: datos[0] || null
       }
     }), {
       status: 200,

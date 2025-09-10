@@ -95,13 +95,20 @@ serve(async (req: Request): Promise<Response> => {
     try {
       body = await req.json();
       console.log('Cuerpo de la solicitud recibido');
-      console.log('Datos recibidos:', JSON.stringify(body, null, 2));
+      console.log('Tipo de datos:', typeof body);
+      console.log('Claves del objeto:', Object.keys(body || {}));
     } catch (e) {
+      console.error('Error parseando JSON:', e);
       return handleError(e, 'análisis del cuerpo de la solicitud');
     }
 
     // Validar datos requeridos
     const { usuario_id, nombre_archivo, datos }: UploadRequest = body;
+    
+    console.log('usuario_id:', usuario_id);
+    console.log('nombre_archivo:', nombre_archivo);
+    console.log('datos es array:', Array.isArray(datos));
+    console.log('datos length:', datos?.length);
     
     if (!usuario_id || !nombre_archivo || !datos) {
       return handleError(new Error('Datos requeridos faltantes'), 'validación de datos');
@@ -111,10 +118,13 @@ serve(async (req: Request): Promise<Response> => {
       return handleError(new Error('No hay datos para procesar'), 'validación de datos');
     }
 
+    console.log('Datos válidos recibidos, procesando...');
+    
     // Crear cliente Supabase con service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://xaohatfpnsoszduxgdyp.supabase.co';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhhb2hhdGZwbnNvc3pkdXhnZHlwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzI5MzEzMiwiZXhwIjoyMDcyODY5MTMyfQ._7UR1-L1Jx4YQz-bgp9u_vU-7UHqimt_ErakI9av6cI';
     
+    console.log('Creando cliente Supabase...');
     const supabaseAdmin = createClient(
       supabaseUrl,
       serviceRoleKey,
@@ -175,6 +185,7 @@ serve(async (req: Request): Promise<Response> => {
       (data ?? []).forEach((row: { id: string; nombre: string }) => {
         vendedorNombreToId.set(normalizeName(row.nombre), row.id);
       });
+      console.log(`Vendedores cargados: ${vendedorNombreToId.size}`);
     }
 
     // Clientes
@@ -189,6 +200,7 @@ serve(async (req: Request): Promise<Response> => {
       (data ?? []).forEach((row: { id: string; nombre: string }) => {
         clienteNombreToId.set(normalizeName(row.nombre), row.id);
       });
+      console.log(`Clientes cargados: ${clienteNombreToId.size}`);
     }
 
     // 3) Construir asignaciones a insertar
@@ -214,6 +226,8 @@ serve(async (req: Request): Promise<Response> => {
         .eq('fecha_reporte', hoy);
       if (delErr) {
         console.warn('No se pudieron limpiar asignaciones del día:', delErr);
+      } else {
+        console.log('Asignaciones del día limpiadas');
       }
     } catch (e) {
       console.warn('Excepción limpiando asignaciones del día:', e);
@@ -277,14 +291,16 @@ serve(async (req: Request): Promise<Response> => {
         errores.push(`Error insertando lote ${i / batchSize + 1}: ${error.message}`);
       } else {
         filasInsertadas += batch.length;
+        console.log(`Lote ${i / batchSize + 1} insertado: ${batch.length} registros`);
       }
     }
 
     // Intentar refrescar vistas materializadas si existe la RPC
     try {
       await supabaseAdmin.rpc('refresh_materialized_views');
-    } catch (_) {
-      // opcional
+      console.log('Vistas materializadas refrescadas');
+    } catch (e) {
+      console.log('No se pudo refrescar vistas materializadas (opcional):', e);
     }
 
     const result = {
@@ -300,7 +316,7 @@ serve(async (req: Request): Promise<Response> => {
     // Respuesta exitosa
     const response: UploadResponse = {
       success: true,
-      message: `Archivo procesado. Insertadas ${result.filas_insertadas}/${result.filas_insertables}.`,
+      message: `Archivo procesado exitosamente. ${result.filas_insertadas} registros insertados de ${result.filas_insertables} procesables.`,
       filas_procesadas: result.filas_procesadas,
       filas_insertadas: result.filas_insertadas,
       errores: result.errores

@@ -129,6 +129,16 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log('Cliente Supabase creado correctamente');
 
+    // Normalizador robusto de nombres (quita espacios extra, mayúsculas y acentos)
+    const normalizeName = (value: unknown): string => {
+      const str = (value ?? '').toString().trim();
+      const upper = str.normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toUpperCase()
+        .replace(/\s+/g, ' ');
+      return upper;
+    };
+
     // Procesar datos de manera robusta y en lotes
     console.log(`Procesando ${datos.length} filas de datos...`);
 
@@ -136,58 +146,49 @@ serve(async (req: Request): Promise<Response> => {
     let filasInsertadas = 0;
     const errores: string[] = [];
 
-    // 1) Normalizar y extraer nombres únicos de vendedores y clientes
-    const vendedoresSet = new Set<string>();
-    const clientesSet = new Set<string>();
+    // 1) Extraer nombres únicos normalizados de vendedores y clientes
+    const vendedoresNormSet = new Set<string>();
+    const clientesNormSet = new Set<string>();
 
     for (const fila of datos) {
-      const vendedorNombre = (fila.vendedor || '').toString().trim();
-      const clienteNombre = (fila.cliente || '').toString().trim();
-      if (vendedorNombre) vendedoresSet.add(vendedorNombre);
-      if (clienteNombre) clientesSet.add(clienteNombre);
+      const vendedorNorm = normalizeName(fila.vendedor);
+      const clienteNorm = normalizeName(fila.cliente);
+      if (vendedorNorm) vendedoresNormSet.add(vendedorNorm);
+      if (clienteNorm) clientesNormSet.add(clienteNorm);
     }
 
-    const vendedoresLista = Array.from(vendedoresSet);
-    const clientesLista = Array.from(clientesSet);
+    console.log(`Nombres únicos (normalizados) → vendedores: ${vendedoresNormSet.size}, clientes: ${clientesNormSet.size}`);
 
-    console.log(`Vendedores únicos: ${vendedoresLista.length}, Clientes únicos: ${clientesLista.length}`);
-
-    // 2) Prefetch IDs de vendedores y clientes
+    // 2) Prefetch global y construir mapas normalizados nombre→id
     const vendedorNombreToId = new Map<string, string>();
     const clienteNombreToId = new Map<string, string>();
 
-    if (vendedoresLista.length > 0) {
-      const chunkSize = 1000;
-      for (let i = 0; i < vendedoresLista.length; i += chunkSize) {
-        const chunk = vendedoresLista.slice(i, i + chunkSize);
-        const { data, error } = await supabaseAdmin
-          .from('vendedores')
-          .select('id,nombre')
-          .in('nombre', chunk);
-        if (error) {
-          console.error('Error prefetch vendedores:', error);
-          errores.push(`Error obteniendo vendedores: ${error.message}`);
-          continue;
-        }
-        data?.forEach((row: { id: string; nombre: string }) => vendedorNombreToId.set(row.nombre, row.id));
+    // Vendedores
+    {
+      const { data, error } = await supabaseAdmin
+        .from('vendedores')
+        .select('id,nombre');
+      if (error) {
+        console.error('Error obteniendo vendedores:', error);
+        throw new Error('No se pudieron obtener vendedores');
       }
+      (data ?? []).forEach((row: { id: string; nombre: string }) => {
+        vendedorNombreToId.set(normalizeName(row.nombre), row.id);
+      });
     }
 
-    if (clientesLista.length > 0) {
-      const chunkSize = 1000;
-      for (let i = 0; i < clientesLista.length; i += chunkSize) {
-        const chunk = clientesLista.slice(i, i + chunkSize);
-        const { data, error } = await supabaseAdmin
-          .from('clientes')
-          .select('id,nombre')
-          .in('nombre', chunk);
-        if (error) {
-          console.error('Error prefetch clientes:', error);
-          errores.push(`Error obteniendo clientes: ${error.message}`);
-          continue;
-        }
-        data?.forEach((row: { id: string; nombre: string }) => clienteNombreToId.set(row.nombre, row.id));
+    // Clientes
+    {
+      const { data, error } = await supabaseAdmin
+        .from('clientes')
+        .select('id,nombre');
+      if (error) {
+        console.error('Error obteniendo clientes:', error);
+        throw new Error('No se pudieron obtener clientes');
       }
+      (data ?? []).forEach((row: { id: string; nombre: string }) => {
+        clienteNombreToId.set(normalizeName(row.nombre), row.id);
+      });
     }
 
     // 3) Construir asignaciones a insertar
@@ -204,18 +205,32 @@ serve(async (req: Request): Promise<Response> => {
     };
 
     const hoy = new Date().toISOString().split('T')[0];
+
+    // Limpiar asignaciones del día para evitar duplicados
+    try {
+      const { error: delErr } = await supabaseAdmin
+        .from('asignaciones')
+        .delete()
+        .eq('fecha_reporte', hoy);
+      if (delErr) {
+        console.warn('No se pudieron limpiar asignaciones del día:', delErr);
+      }
+    } catch (e) {
+      console.warn('Excepción limpiando asignaciones del día:', e);
+    }
+
     const asignaciones: Asignacion[] = [];
 
     for (let i = 0; i < datos.length; i++) {
       const fila = datos[i];
-      const vendedorNombre = (fila.vendedor || '').toString().trim();
-      const clienteNombre = (fila.cliente || '').toString().trim();
+      const vendedorNorm = normalizeName(fila.vendedor);
+      const clienteNorm = normalizeName(fila.cliente);
 
-      const vendedorId = vendedorNombreToId.get(vendedorNombre);
-      const clienteId = clienteNombreToId.get(clienteNombre);
+      const vendedorId = vendedorNombreToId.get(vendedorNorm);
+      const clienteId = clienteNombreToId.get(clienteNorm);
 
       if (!vendedorId || !clienteId) {
-        errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado (Vendedor: ${vendedorNombre || '-'}, Cliente: ${clienteNombre || '-'})`);
+        errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado (Vendedor: ${fila.vendedor || '-'}, Cliente: ${fila.cliente || '-'})`);
         continue;
       }
 
@@ -228,7 +243,7 @@ serve(async (req: Request): Promise<Response> => {
 
       const toNum = (v: any) => {
         if (v === undefined || v === null || v === '') return undefined;
-        const n = parseInt(v);
+        const n = Number(v);
         return Number.isFinite(n) ? n : undefined;
       };
 
@@ -263,6 +278,13 @@ serve(async (req: Request): Promise<Response> => {
       } else {
         filasInsertadas += batch.length;
       }
+    }
+
+    // Intentar refrescar vistas materializadas si existe la RPC
+    try {
+      await supabaseAdmin.rpc('refresh_materialized_views');
+    } catch (_) {
+      // opcional
     }
 
     const result = {

@@ -149,13 +149,19 @@ serve(async (req: Request): Promise<Response> => {
     let processError;
     
     try {
+      console.log('Intentando usar función RPC process_excel_upload...');
       const rpcResult = await supabaseAdmin.rpc('process_excel_upload', {
         p_usuario_id: usuario_id,
         p_nombre_archivo: nombre_archivo,
         p_datos: datos
       });
+      console.log('Resultado RPC:', rpcResult);
       result = rpcResult.data;
       processError = rpcResult.error;
+      
+      if (processError) {
+        console.error('Error en función RPC:', processError);
+      }
     } catch (rpcErr) {
       console.warn('Función RPC no disponible, usando método alternativo:', rpcErr);
       processError = rpcErr;
@@ -323,6 +329,21 @@ serve(async (req: Request): Promise<Response> => {
     );
 
   } catch (error) {
+    console.error('Error general en excel-upload:', error);
+    
+    // Si es un error específico de Supabase, manejarlo de manera especial
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errorMessage = error.message as string;
+      
+      if (errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
+        return handleError(new Error('Tabla o función no encontrada en la base de datos'), 'verificación de base de datos');
+      } else if (errorMessage.includes('permission') || errorMessage.includes('denied')) {
+        return handleError(new Error('Sin permisos para realizar esta operación'), 'verificación de permisos');
+      } else if (errorMessage.includes('timeout')) {
+        return handleError(new Error('Tiempo de espera agotado'), 'tiempo de procesamiento');
+      }
+    }
+    
     return handleError(error, 'manejo de solicitud de carga de Excel');
   }
 });

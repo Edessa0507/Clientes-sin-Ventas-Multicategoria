@@ -143,9 +143,25 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`Mapas creados - V: ${vendedorMap.size}, C: ${clienteMap.size}`);
 
+    // Debug: Mostrar algunos vendedores y clientes
+    const debugVendedores = (vendedores || []).slice(0, 3).map(v => ({
+      codigo: v.codigo,
+      nombre_completo: v.nombre_completo,
+      normalizado: normalizeName(v.nombre_completo)
+    }));
+
+    const debugClientes = (clientes || []).slice(0, 3).map(c => ({
+      codigo: c.codigo,
+      nombre: c.nombre,
+      normalizado: normalizeName(c.nombre)
+    }));
+
     // Procesar datos
     const asignaciones: any[] = [];
     const errores: string[] = [];
+    const debugFila = datos[0]; // Primera fila para debug
+
+    console.log('Primera fila de datos:', debugFila);
 
     for (let i = 0; i < datos.length; i++) {
       const fila = datos[i];
@@ -156,7 +172,7 @@ serve(async (req: Request): Promise<Response> => {
       const clienteId = clienteMap.get(clienteNorm);
 
       if (!vendedorId || !clienteId) {
-        errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado (V: "${fila.vendedor}", C: "${fila.cliente}")`);
+        errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado (V: "${fila.vendedor}" -> "${vendedorNorm}", C: "${fila.cliente}" -> "${clienteNorm}")`);
         continue;
       }
 
@@ -178,6 +194,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     console.log(`Asignaciones a insertar: ${asignaciones.length}`);
+    console.log(`Errores encontrados: ${errores.length}`);
 
     // Insertar asignaciones
     let filasInsertadas = 0;
@@ -194,7 +211,7 @@ serve(async (req: Request): Promise<Response> => {
       console.log(`${filasInsertadas} asignaciones insertadas`);
     }
 
-    // Respuesta exitosa
+    // Respuesta exitosa con debug info
     const response: UploadResponse = {
       success: true,
       message: `Archivo procesado exitosamente. ${filasInsertadas} registros insertados de ${datos.length} procesados.`,
@@ -204,7 +221,11 @@ serve(async (req: Request): Promise<Response> => {
       debug_info: {
         vendedores_encontrados: vendedorMap.size,
         clientes_encontrados: clienteMap.size,
-        categorias_encontradas: categorias?.length || 0
+        categorias_encontradas: categorias?.length || 0,
+        debug_vendedores: debugVendedores,
+        debug_clientes: debugClientes,
+        primera_fila: debugFila,
+        errores_detallados: errores.slice(0, 5) // Primeros 5 errores
       }
     };
 

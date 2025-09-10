@@ -1,212 +1,51 @@
-# PWA Generador de Clientes sin Ventas Multicategoría
+# Generador de Clientes sin Ventas Multicategoría
 
-## Descripción General
+Una aplicación PWA desarrollada con React, TypeScript y Supabase para la gestión de clientes sin ventas multicategoría.
 
-Aplicación web progresiva (PWA) offline-first que permite a vendedores visualizar el progreso de activación de categorías por cliente, con panel administrativo para carga diaria de datos desde Excel.
+## 🚀 Despliegue en GitHub Pages
 
-## Arquitectura de la Solución
+Esta aplicación está configurada para desplegarse automáticamente en GitHub Pages cuando se hace push a la rama `main`.
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Frontend PWA  │    │   Supabase       │    │   Netlify       │
-│                 │    │                  │    │                 │
-│ • React + Vite  │◄──►│ • PostgreSQL     │    │ • Static Host   │
-│ • Tailwind CSS  │    │ • Auth + RLS     │    │ • Edge Functions│
-│ • Service Worker│    │ • Edge Functions │    │ • Environment   │
-│ • IndexedDB     │    │ • Storage        │    │   Variables     │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-```
+### URL de la aplicación:
+https://edessa0507.github.io/Clientes-sin-Ventas-Multicategoria/
 
-## Funcionalidades Principales
+## 🛠️ Tecnologías
 
-### Por Rol de Usuario
+- **Frontend**: React 18 + TypeScript + Vite
+- **Backend**: Supabase (PostgreSQL + Edge Functions)
+- **UI**: Tailwind CSS + Lucide React
+- **PWA**: Vite PWA Plugin
+- **Autenticación**: Supabase Auth
 
-#### 🔑 Vendedor
-- Login por código (ej: "E56" → autocompleta "(PREV) PEDRO JOSE BURGOS")
-- Vista de clientes asignados con progreso de categorías
-- Filtros por zona, ruta, cliente
-- Indicadores visuales modernos (íconos animados en lugar de texto)
-- Funcionalidad offline completa
+## 📱 Características
 
-#### 👥 Supervisor
-- Login por código con rol supervisor
-- Vista agregada por zona/ruta
-- Selección de vendedor específico o "todos"
-- Dashboard de progreso general
+- **PWA**: Instalable en dispositivos móviles
+- **Dashboard Administrativo**: Gestión completa de datos
+- **Dashboard de Vendedores**: Vista específica para vendedores
+- **Dashboard de Supervisores**: Vista para supervisores
+- **Carga de archivos Excel**: Importación masiva de datos
+- **Autenticación segura**: Sistema de roles (admin, supervisor, vendedor)
 
-#### ⚙️ Administrador
-- Login con contraseña
-- Carga diaria de Excel con validación
-- Vista previa de cambios antes de aplicar
-- Reemplazo atómico de datos
-- Auditoría completa de importaciones
-- Gestión de usuarios y roles
+## 🔧 Configuración Local
 
-## Stack Tecnológico
+1. Clona el repositorio
+2. Instala las dependencias: `npm install`
+3. Configura las variables de entorno de Supabase
+4. Ejecuta en modo desarrollo: `npm run dev`
 
-- **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS
-- **Backend**: Supabase (PostgreSQL + Auth + RLS + Edge Functions)
-- **PWA**: Service Worker + IndexedDB (Dexie)
-- **Despliegue**: Netlify (Frontend) + Supabase (Backend)
-- **Procesamiento**: SheetJS para Excel, Zod para validación
+## 📊 Funcionalidades
 
-## Estructura del Proyecto
+- ✅ Autenticación con códigos de acceso
+- ✅ Dashboard administrativo con KPIs
+- ✅ Carga y procesamiento de archivos Excel
+- ✅ Gestión de vendedores, clientes y asignaciones
+- ✅ PWA con cache offline
+- ✅ Responsive design
 
-```
-├── src/
-│   ├── components/          # Componentes React reutilizables
-│   ├── pages/              # Páginas principales por rol
-│   ├── hooks/              # Custom hooks
-│   ├── services/           # APIs y servicios
-│   ├── stores/             # Estado global (Zustand)
-│   ├── types/              # Definiciones TypeScript
-│   ├── utils/              # Utilidades y helpers
-│   └── workers/            # Service Worker
-├── supabase/
-│   ├── migrations/         # Migraciones SQL
-│   ├── functions/          # Edge Functions
-│   └── seed.sql           # Datos iniciales
-├── public/
-│   ├── manifest.json      # PWA Manifest
-│   └── sw.js             # Service Worker
-└── docs/                  # Documentación
-```
+## 🚀 Despliegue Automático
 
-## Modelo de Datos
+El proyecto se despliega automáticamente en GitHub Pages usando GitHub Actions cuando:
+- Se hace push a la rama `main`
+- Se crea un pull request hacia `main`
 
-### Tablas Principales
-
-1. **auth_users** - Usuarios del sistema
-2. **vendedores** - Información de vendedores
-3. **supervisores** - Información de supervisores
-4. **zonas** - Zonas geográficas
-5. **rutas** - Rutas de venta
-6. **clientes** - Clientes del sistema
-7. **categorias** - Categorías de productos
-8. **asignaciones** - Relación vendedor-cliente-categoría
-9. **estados_activacion** - Estados de activación por categoría
-10. **import_runs** - Auditoría de importaciones
-
-### Flujo de Datos Excel
-
-```
-Excel → Validación → Staging → Vista Previa → Aplicación Atómica → Auditoría
-```
-
-## Seguridad
-
-### Row Level Security (RLS)
-- **Vendedores**: Solo ven sus clientes asignados
-- **Supervisores**: Solo ven vendedores de sus zonas
-- **Administradores**: Acceso completo
-
-### Autenticación
-- **Vendedores/Supervisores**: Login por código sin contraseña
-- **Administradores**: Login tradicional con email/contraseña
-- JWT con claims personalizados para roles y permisos
-
-## Instalación y Configuración
-
-### Prerrequisitos
-- Node.js 18+
-- Cuenta de Supabase
-- Cuenta de Netlify
-
-### Variables de Entorno
-
-```env
-# Supabase
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Configuración
-VITE_APP_NAME="Generador de Clientes"
-VITE_DEFAULT_SHEET_NAME="CLIENTES SIN VENT MULTICATEGORI"
-```
-
-### Comandos de Desarrollo
-
-```bash
-# Instalar dependencias
-npm install
-
-# Desarrollo local
-npm run dev
-
-# Build para producción
-npm run build
-
-# Ejecutar pruebas
-npm run test
-
-# Linting y formato
-npm run lint
-npm run format
-```
-
-## Despliegue
-
-### 1. Configurar Supabase
-```bash
-# Ejecutar migraciones
-supabase db push
-
-# Desplegar Edge Functions
-supabase functions deploy
-```
-
-### 2. Configurar Netlify
-```bash
-# Build y deploy
-npm run build
-netlify deploy --prod --dir=dist
-```
-
-## Funcionalidades Offline
-
-- **Cache de Assets**: Estrategia CacheFirst con versionado
-- **Cache de Datos**: StaleWhileRevalidate con TTL configurable
-- **Sincronización**: Cola de acciones pendientes con backoff exponencial
-- **Indicadores**: Banner de estado de conexión
-
-## Pruebas
-
-### Tipos de Pruebas
-- **Unitarias**: Validación, parsing, normalización
-- **Integración**: RLS, vistas, Edge Functions
-- **E2E**: Flujos completos por rol
-
-### Ejecutar Pruebas
-```bash
-# Todas las pruebas
-npm run test
-
-# Pruebas unitarias
-npm run test:unit
-
-# Pruebas de integración
-npm run test:integration
-
-# Pruebas E2E
-npm run test:e2e
-```
-
-## Criterios de Aceptación
-
-✅ Login por código con autocompletado seguro del nombre
-✅ Importación diaria con reemplazo atómico y auditoría
-✅ RLS que previene accesos cruzados entre roles
-✅ PWA funcional offline con sincronización automática
-✅ UI moderna con micro-interacciones y accesibilidad
-✅ Despliegue exitoso en free tier (Netlify + Supabase)
-
-## Soporte y Mantenimiento
-
-- **Logs**: Centralizados en Supabase con niveles de severidad
-- **Monitoreo**: Métricas de uso y rendimiento
-- **Backups**: Snapshots automáticos de datos históricos
-- **Rollbacks**: Capacidad de revertir importaciones
-
-## Contacto
-
-Para soporte técnico o consultas sobre el proyecto, contactar al equipo de Ingeniería de Datos de EDESSA.
+El workflow está configurado en `.github/workflows/deploy.yml`

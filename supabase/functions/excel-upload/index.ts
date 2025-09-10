@@ -118,9 +118,16 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`Categorías obtenidas: ${categorias?.length || 0}`);
 
-    // Normalizador
+    // Normalizador mejorado para extraer nombres después de prefijos
     const normalizeName = (value: unknown): string => {
-      const str = (value ?? '').toString().trim();
+      let str = (value ?? '').toString().trim();
+      
+      // Extraer nombre después de "CODIGO - " (para vendedores y clientes)
+      const match = str.match(/^[A-Z0-9\s-]+\s*-\s*(.+)$/);
+      if (match) {
+        str = match[1].trim(); // Usar solo la parte después del guión
+      }
+      
       return str.normalize('NFD')
         .replace(/\p{Diacritic}/gu, '')
         .toUpperCase()

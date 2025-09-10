@@ -6,22 +6,25 @@
     <script>
       (function() {
         var base = '/Clientes-sin-Ventas-Multicategoria';
-        var path = window.location.pathname;
+        var path = window.location.pathname || '';
         var search = window.location.search || '';
         var hash = window.location.hash || '';
 
-        // Si ya estamos en la raíz del sitio (base o base/), no redirigir para evitar loops
-        if (path === base || path === base + '/') {
-          // Nada: dejar que el index del sitio se cargue normalmente
-          console.log('SPA fallback: en base, no redirigir');
-          return;
+        // Siempre redirigir explícitamente a index.html para evitar loops
+        var target = base + '/index.html';
+
+        // Conservar ruta original como hash (para HashRouter)
+        if (path.startsWith(base)) {
+          var rest = path.slice(base.length);
+          if (rest && rest !== '/') {
+            target += '#' + rest.replace(/^\/+/, '');
+          }
         }
 
-        // Redirigir a la raíz con el path original codificado como hash (no rompe rutas)
-        var remaining = path.replace(base, '');
-        var target = base + '/#' + remaining.replace(/^\//, '');
+        // Conservar query y hash
         if (search) target += encodeURIComponent(search);
         if (hash) target += hash;
+
         window.location.replace(target);
       })();
     </script>

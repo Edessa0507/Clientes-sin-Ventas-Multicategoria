@@ -5,6 +5,7 @@ const allowedOrigins = [
   'http://172.16.10.153:3000', // Desarrollo en red local
   'https://clientes-sin-ventas-edessa.netlify.app', // Producción Netlify
   'https://clientes-sin-ventas-multicategoria.netlify.app', // Producción Netlify (dominio actual)
+  'https://edessa0507.github.io', // GitHub Pages
   'https://xaohatfpnsoszduxgdyp.supabase.co' // Supabase
 ];
 

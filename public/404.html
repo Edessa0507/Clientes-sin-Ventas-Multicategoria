@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <meta http-equiv="refresh" content="0; url=/Clientes-sin-Ventas-Multicategoria/">
+    <script>
+      (function() {
+        var path = window.location.pathname;
+        var base = '/Clientes-sin-Ventas-Multicategoria';
+        // Si ya estamos bajo base, ir al index conservando el path relativo
+        if (path.startsWith(base)) {
+          var relative = path.replace(base, '');
+          var target = base + '/' + (relative || '');
+          window.location.replace(target);
+        } else {
+          window.location.replace(base + '/');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    Redirigiendo...
+  </body>
+</html>

@@ -172,7 +172,32 @@ export default function AdminDashboard() {
       const processedData = rows.map(row => {
         const obj: any = {}
         headers.forEach((header, index) => {
-          obj[header.toLowerCase().replace(/\s+/g, '_')] = row[index] || ''
+          if (header) {
+            // Normalizar nombres de columnas
+            let normalizedHeader = header.toString().trim()
+            
+            // Mapear nombres específicos conocidos
+            if (normalizedHeader.toUpperCase() === 'VENDEDOR') {
+              normalizedHeader = 'vendedor'
+            } else if (normalizedHeader.toUpperCase() === 'CLIENTE') {
+              normalizedHeader = 'cliente'
+            } else if (normalizedHeader.toUpperCase() === 'ENSURE') {
+              normalizedHeader = 'ensure'
+            } else if (normalizedHeader.toUpperCase() === 'CHOCOLATE') {
+              normalizedHeader = 'chocolate'
+            } else if (normalizedHeader.toUpperCase() === 'ALPINA') {
+              normalizedHeader = 'alpina'
+            } else if (normalizedHeader.toUpperCase() === 'SUPER DE ALIM') {
+              normalizedHeader = 'super_de_alim'
+            } else if (normalizedHeader.toUpperCase() === 'CONDICIONATE') {
+              normalizedHeader = 'condicionate'
+            } else {
+              // Conversión genérica para otros casos
+              normalizedHeader = normalizedHeader.toLowerCase().replace(/\s+/g, '_')
+            }
+            
+            obj[normalizedHeader] = row[index] || ''
+          }
         })
         return obj
       })

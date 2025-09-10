@@ -95,6 +95,7 @@ serve(async (req: Request): Promise<Response> => {
     try {
       body = await req.json();
       console.log('Cuerpo de la solicitud recibido');
+      console.log('Datos recibidos:', JSON.stringify(body, null, 2));
     } catch (e) {
       return handleError(e, 'análisis del cuerpo de la solicitud');
     }
@@ -185,35 +186,44 @@ serve(async (req: Request): Promise<Response> => {
       let filas_insertadas = 0;
       const errores: string[] = [];
 
+      console.log(`Procesando ${datos.length} filas de datos manualmente...`);
+
       for (let i = 0; i < datos.length; i++) {
         try {
           const fila = datos[i];
+          console.log(`Procesando fila ${i + 1}:`, fila);
           
-          // Buscar o crear vendedor
+          // Buscar vendedor
           let vendedor_id = null;
-          if (fila.vendedor) {
-            const { data: vendedor } = await supabaseAdmin
+          if (fila.vendedor && fila.vendedor.trim()) {
+            const { data: vendedor, error: vendedorError } = await supabaseAdmin
               .from('vendedores')
               .select('id')
-              .eq('nombre', fila.vendedor)
+              .eq('nombre', fila.vendedor.trim())
               .single();
             
-            if (vendedor) {
+            if (vendedorError) {
+              console.log(`Vendedor no encontrado: ${fila.vendedor}`, vendedorError);
+            } else {
               vendedor_id = vendedor.id;
+              console.log(`Vendedor encontrado: ${fila.vendedor} -> ${vendedor_id}`);
             }
           }
 
-          // Buscar o crear cliente
+          // Buscar cliente
           let cliente_id = null;
-          if (fila.cliente) {
-            const { data: cliente } = await supabaseAdmin
+          if (fila.cliente && fila.cliente.trim()) {
+            const { data: cliente, error: clienteError } = await supabaseAdmin
               .from('clientes')
               .select('id')
-              .eq('nombre', fila.cliente)
+              .eq('nombre', fila.cliente.trim())
               .single();
             
-            if (cliente) {
+            if (clienteError) {
+              console.log(`Cliente no encontrado: ${fila.cliente}`, clienteError);
+            } else {
               cliente_id = cliente.id;
+              console.log(`Cliente encontrado: ${fila.cliente} -> ${cliente_id}`);
             }
           }
 
@@ -226,12 +236,24 @@ serve(async (req: Request): Promise<Response> => {
               estado_activacion: 'pendiente'
             };
 
-            // Agregar datos de productos si existen
-            if (fila.ensure) asignacionData.ensure = fila.ensure;
-            if (fila.chocolate) asignacionData.chocolate = fila.chocolate;
-            if (fila.alpina) asignacionData.alpina = fila.alpina;
-            if (fila['super_de_alim']) asignacionData.super_de_alim = fila['super_de_alim'];
-            if (fila.condicionate) asignacionData.condicionate = fila.condicionate;
+            // Agregar datos de productos si existen (convertir a números)
+            if (fila.ensure !== undefined && fila.ensure !== '') {
+              asignacionData.ensure = parseInt(fila.ensure) || 0;
+            }
+            if (fila.chocolate !== undefined && fila.chocolate !== '') {
+              asignacionData.chocolate = parseInt(fila.chocolate) || 0;
+            }
+            if (fila.alpina !== undefined && fila.alpina !== '') {
+              asignacionData.alpina = parseInt(fila.alpina) || 0;
+            }
+            if (fila.super_de_alim !== undefined && fila.super_de_alim !== '') {
+              asignacionData.super_de_alim = parseInt(fila.super_de_alim) || 0;
+            }
+            if (fila.condicionate !== undefined && fila.condicionate !== '') {
+              asignacionData.condicionate = parseInt(fila.condicionate) || 0;
+            }
+
+            console.log(`Insertando asignación:`, asignacionData);
 
             const { error: insertError } = await supabaseAdmin
               .from('asignaciones')
@@ -239,14 +261,20 @@ serve(async (req: Request): Promise<Response> => {
 
             if (!insertError) {
               filas_insertadas++;
+              console.log(`Asignación insertada exitosamente para fila ${i + 1}`);
             } else {
               errores.push(`Fila ${i + 1}: ${insertError.message}`);
+              console.error(`Error insertando asignación para fila ${i + 1}:`, insertError);
             }
           } else {
-            errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado`);
+            const errorMsg = `Fila ${i + 1}: Vendedor o cliente no encontrado (Vendedor: ${fila.vendedor}, Cliente: ${fila.cliente})`;
+            errores.push(errorMsg);
+            console.log(errorMsg);
           }
         } catch (rowError) {
-          errores.push(`Fila ${i + 1}: ${rowError.message}`);
+          const errorMsg = `Fila ${i + 1}: ${rowError.message}`;
+          errores.push(errorMsg);
+          console.error(errorMsg, rowError);
         }
       }
 

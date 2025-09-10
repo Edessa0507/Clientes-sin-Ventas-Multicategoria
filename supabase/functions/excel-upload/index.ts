@@ -203,18 +203,105 @@ serve(async (req: Request): Promise<Response> => {
     console.log(`Asignaciones a insertar: ${asignaciones.length}`);
     console.log(`Errores encontrados: ${errores.length}`);
 
+    // Crear clientes que no existen automáticamente
+    const clientesACrear = new Set<string>();
+    const erroresDetallados = errores.slice(0, 5);
+    
+    // Extraer nombres de clientes que no se encontraron
+    erroresDetallados.forEach(error => {
+      const match = error.match(/C: "([^"]+)"/);
+      if (match) {
+        clientesACrear.add(match[1]);
+      }
+    });
+
+    console.log(`Clientes a crear: ${clientesACrear.size}`);
+    
+    // Crear clientes faltantes
+    const clientesCreados = new Map<string, string>();
+    if (clientesACrear.size > 0) {
+      // Obtener primera zona y ruta para los nuevos clientes
+      const { data: primeraZona } = await supabaseAdmin
+        .from('zonas')
+        .select('id')
+        .eq('activa', true)
+        .limit(1)
+        .single();
+        
+      const { data: primeraRuta } = await supabaseAdmin
+        .from('rutas')
+        .select('id')
+        .eq('activa', true)
+        .limit(1)
+        .single();
+
+      if (primeraZona && primeraRuta) {
+        for (const nombreCliente of clientesACrear) {
+          const { data: nuevoCliente, error: errorCrear } = await supabaseAdmin
+            .from('clientes')
+            .insert({
+              codigo: `CLI${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+              nombre: nombreCliente,
+              zona_id: primeraZona.id,
+              ruta_id: primeraRuta.id,
+              activo: true
+            })
+            .select('id, nombre')
+            .single();
+
+          if (!errorCrear && nuevoCliente) {
+            clienteMap.set(normalizeName(nombreCliente), nuevoCliente.id);
+            clientesCreados.set(nombreCliente, nuevoCliente.id);
+            console.log(`Cliente creado: ${nombreCliente} -> ${nuevoCliente.id}`);
+          }
+        }
+      }
+    }
+
+    // Reprocesar asignaciones con los nuevos clientes
+    const asignacionesFinales: any[] = [];
+    for (let i = 0; i < datos.length; i++) {
+      const fila = datos[i];
+      const vendedorNorm = normalizeName(fila.vendedor);
+      const clienteNorm = normalizeName(fila.cliente);
+
+      const vendedorId = vendedorMap.get(vendedorNorm);
+      const clienteId = clienteMap.get(clienteNorm);
+
+      if (!vendedorId || !clienteId) {
+        continue; // Saltar si aún no se puede hacer match
+      }
+
+      const categoriaId = categorias?.[0]?.id;
+      if (!categoriaId) {
+        continue;
+      }
+
+      const asignacion = {
+        vendedor_id: vendedorId,
+        cliente_id: clienteId,
+        categoria_id: categoriaId,
+        fecha_reporte: new Date().toISOString().split('T')[0],
+        estado_activacion: 'pendiente'
+      };
+
+      asignacionesFinales.push(asignacion);
+    }
+
+    console.log(`Asignaciones finales a insertar: ${asignacionesFinales.length}`);
+
     // Insertar asignaciones
     let filasInsertadas = 0;
-    if (asignaciones.length > 0) {
+    if (asignacionesFinales.length > 0) {
       const { error: insertError } = await supabaseAdmin
         .from('asignaciones')
-        .insert(asignaciones);
+        .insert(asignacionesFinales);
       
       if (insertError) {
         return handleError(insertError, 'insertar asignaciones');
       }
       
-      filasInsertadas = asignaciones.length;
+      filasInsertadas = asignacionesFinales.length;
       console.log(`${filasInsertadas} asignaciones insertadas`);
     }
 
@@ -232,7 +319,8 @@ serve(async (req: Request): Promise<Response> => {
         debug_vendedores: debugVendedores,
         debug_clientes: debugClientes,
         primera_fila: debugFila,
-        errores_detallados: errores.slice(0, 5) // Primeros 5 errores
+        errores_detallados: errores.slice(0, 5), // Primeros 5 errores
+        clientes_creados: Array.from(clientesCreados.entries()).map(([nombre, id]) => ({ nombre, id }))
       }
     };
 

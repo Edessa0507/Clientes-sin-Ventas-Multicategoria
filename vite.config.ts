@@ -19,7 +19,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         scope: '/Clientes-sin-Ventas-Multicategoria/',
-        start_url: '/Clientes-sin-Ventas-Multicategoria/',
+        start_url: '/Clientes-sin-Ventas-Multicategoria/#/',
         icons: [
           {
             src: '/Clientes-sin-Ventas-Multicategoria/pwa-192x192.png',

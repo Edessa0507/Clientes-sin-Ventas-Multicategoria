@@ -221,10 +221,47 @@ export default function AdminDashboard() {
         throw new Error(result.error || 'Error al procesar el archivo')
       }
 
+      // Mostrar información de debug si está disponible
+      let debugMessage = `Datos procesados exitosamente. ${result.filas_insertadas} registros insertados.`;
+      
+      if (result.debug_info) {
+        debugMessage += `\n\nDebug Info:`;
+        debugMessage += `\n- Vendedores encontrados: ${result.debug_info.vendedores_encontrados}`;
+        debugMessage += `\n- Clientes encontrados: ${result.debug_info.clientes_encontrados}`;
+        debugMessage += `\n- Categorías encontradas: ${result.debug_info.categorias_encontradas}`;
+        
+        if (result.debug_info.errores_detallados && result.debug_info.errores_detallados.length > 0) {
+          debugMessage += `\n\nErrores de matching:`;
+          result.debug_info.errores_detallados.forEach((error: string, index: number) => {
+            debugMessage += `\n${index + 1}. ${error}`;
+          });
+        }
+        
+        if (result.debug_info.debug_vendedores && result.debug_info.debug_vendedores.length > 0) {
+          debugMessage += `\n\nVendedores en BD:`;
+          result.debug_info.debug_vendedores.forEach((v: any, index: number) => {
+            debugMessage += `\n${index + 1}. "${v.nombre_completo}" -> "${v.normalizado}"`;
+          });
+        }
+        
+        if (result.debug_info.debug_clientes && result.debug_info.debug_clientes.length > 0) {
+          debugMessage += `\n\nClientes en BD:`;
+          result.debug_info.debug_clientes.forEach((c: any, index: number) => {
+            debugMessage += `\n${index + 1}. "${c.nombre}" -> "${c.normalizado}"`;
+          });
+        }
+        
+        if (result.debug_info.primera_fila) {
+          debugMessage += `\n\nPrimera fila del Excel:`;
+          debugMessage += `\n- Vendedor: "${result.debug_info.primera_fila.vendedor}"`;
+          debugMessage += `\n- Cliente: "${result.debug_info.primera_fila.cliente}"`;
+        }
+      }
+
       setUploadStatus(prev => ({
         ...prev,
         progress: 100,
-        message: `Datos procesados exitosamente. ${result.filas_insertadas} registros insertados.`,
+        message: debugMessage,
         success: true,
         isUploading: false
       }))

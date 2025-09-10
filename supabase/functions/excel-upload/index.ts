@@ -19,7 +19,7 @@ interface UploadResponse {
 }
 
 serve(async (req: Request): Promise<Response> => {
-  console.log('=== INICIO EXCEL-UPLOAD ===');
+  console.log('=== INICIO EXCEL-UPLOAD SIMPLIFICADO ===');
   
   const origin = req.headers.get('origin') || '*';
   const corsHeaders = getCorsHeaders(origin);
@@ -85,7 +85,24 @@ serve(async (req: Request): Promise<Response> => {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
     console.log('Cliente Supabase creado');
 
-    // Obtener vendedores
+    // Normalizador mejorado
+    const normalizeName = (value: unknown): string => {
+      let str = (value ?? '').toString().trim();
+      
+      // Extraer nombre después de "CODIGO - "
+      const match = str.match(/^[A-Z0-9\s-]+\s*-\s*(.+)$/);
+      if (match) {
+        str = match[1].trim();
+      }
+      
+      return str.normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toUpperCase()
+        .replace(/\s+/g, ' ');
+    };
+
+    // Obtener datos básicos
+    console.log('Obteniendo vendedores...');
     const { data: vendedores, error: errorVendedores } = await supabaseAdmin
       .from('vendedores')
       .select('id, codigo, nombre_completo');
@@ -94,9 +111,7 @@ serve(async (req: Request): Promise<Response> => {
       return handleError(errorVendedores, 'obtener vendedores');
     }
 
-    console.log(`Vendedores obtenidos: ${vendedores?.length || 0}`);
-
-    // Obtener clientes
+    console.log('Obteniendo clientes...');
     const { data: clientes, error: errorClientes } = await supabaseAdmin
       .from('clientes')
       .select('id, codigo, nombre');
@@ -105,9 +120,7 @@ serve(async (req: Request): Promise<Response> => {
       return handleError(errorClientes, 'obtener clientes');
     }
 
-    console.log(`Clientes obtenidos: ${clientes?.length || 0}`);
-
-    // Obtener categorías
+    console.log('Obteniendo categorías...');
     const { data: categorias, error: errorCategorias } = await supabaseAdmin
       .from('categorias')
       .select('id, codigo, nombre');
@@ -116,23 +129,20 @@ serve(async (req: Request): Promise<Response> => {
       return handleError(errorCategorias, 'obtener categorías');
     }
 
-    console.log(`Categorías obtenidas: ${categorias?.length || 0}`);
-
-    // Normalizador mejorado para extraer nombres después de prefijos
-    const normalizeName = (value: unknown): string => {
-      let str = (value ?? '').toString().trim();
+    console.log('Obteniendo zona y ruta...');
+    const { data: primeraZona } = await supabaseAdmin
+      .from('zonas')
+      .select('id')
+      .eq('activa', true)
+      .limit(1)
+      .single();
       
-      // Extraer nombre después de "CODIGO - " (para vendedores y clientes)
-      const match = str.match(/^[A-Z0-9\s-]+\s*-\s*(.+)$/);
-      if (match) {
-        str = match[1].trim(); // Usar solo la parte después del guión
-      }
-      
-      return str.normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .toUpperCase()
-        .replace(/\s+/g, ' ');
-    };
+    const { data: primeraRuta } = await supabaseAdmin
+      .from('rutas')
+      .select('id')
+      .eq('activa', true)
+      .limit(1)
+      .single();
 
     // Crear mapas
     const vendedorMap = new Map<string, string>();
@@ -150,25 +160,48 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`Mapas creados - V: ${vendedorMap.size}, C: ${clienteMap.size}`);
 
-    // Debug: Mostrar algunos vendedores y clientes
-    const debugVendedores = (vendedores || []).slice(0, 3).map(v => ({
-      codigo: v.codigo,
-      nombre_completo: v.nombre_completo,
-      normalizado: normalizeName(v.nombre_completo)
-    }));
+    // Identificar clientes faltantes
+    const clientesFaltantes = new Set<string>();
+    datos.forEach(fila => {
+      const clienteNorm = normalizeName(fila.cliente);
+      if (clienteNorm && !clienteMap.has(clienteNorm)) {
+        clientesFaltantes.add(clienteNorm);
+      }
+    });
 
-    const debugClientes = (clientes || []).slice(0, 3).map(c => ({
-      codigo: c.codigo,
-      nombre: c.nombre,
-      normalizado: normalizeName(c.nombre)
-    }));
+    console.log(`Clientes faltantes: ${clientesFaltantes.size}`);
 
-    // Procesar datos
+    // Crear clientes faltantes
+    const clientesCreados = new Map<string, string>();
+    if (clientesFaltantes.size > 0 && primeraZona && primeraRuta) {
+      for (const nombreCliente of clientesFaltantes) {
+        try {
+          const { data: nuevoCliente, error: errorCrear } = await supabaseAdmin
+            .from('clientes')
+            .insert({
+              codigo: `CLI${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+              nombre: nombreCliente,
+              zona_id: primeraZona.id,
+              ruta_id: primeraRuta.id,
+              activo: true
+            })
+            .select('id, nombre')
+            .single();
+
+          if (!errorCrear && nuevoCliente) {
+            clienteMap.set(normalizeName(nombreCliente), nuevoCliente.id);
+            clientesCreados.set(nombreCliente, nuevoCliente.id);
+            console.log(`Cliente creado: ${nombreCliente}`);
+          }
+        } catch (e) {
+          console.log(`Error creando cliente ${nombreCliente}:`, e);
+        }
+      }
+    }
+
+    // Procesar asignaciones
     const asignaciones: any[] = [];
     const errores: string[] = [];
-    const debugFila = datos[0]; // Primera fila para debug
-
-    console.log('Primera fila de datos:', debugFila);
 
     for (let i = 0; i < datos.length; i++) {
       const fila = datos[i];
@@ -179,7 +212,7 @@ serve(async (req: Request): Promise<Response> => {
       const clienteId = clienteMap.get(clienteNorm);
 
       if (!vendedorId || !clienteId) {
-        errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado (V: "${fila.vendedor}" -> "${vendedorNorm}", C: "${fila.cliente}" -> "${clienteNorm}")`);
+        errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado`);
         continue;
       }
 
@@ -201,111 +234,23 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     console.log(`Asignaciones a insertar: ${asignaciones.length}`);
-    console.log(`Errores encontrados: ${errores.length}`);
-
-    // Crear clientes que no existen automáticamente
-    const clientesACrear = new Set<string>();
-    const erroresDetallados = errores.slice(0, 5);
-    
-    // Extraer nombres de clientes que no se encontraron
-    erroresDetallados.forEach(error => {
-      const match = error.match(/C: "([^"]+)"/);
-      if (match) {
-        clientesACrear.add(match[1]);
-      }
-    });
-
-    console.log(`Clientes a crear: ${clientesACrear.size}`);
-    
-    // Crear clientes faltantes
-    const clientesCreados = new Map<string, string>();
-    if (clientesACrear.size > 0) {
-      // Obtener primera zona y ruta para los nuevos clientes
-      const { data: primeraZona } = await supabaseAdmin
-        .from('zonas')
-        .select('id')
-        .eq('activa', true)
-        .limit(1)
-        .single();
-        
-      const { data: primeraRuta } = await supabaseAdmin
-        .from('rutas')
-        .select('id')
-        .eq('activa', true)
-        .limit(1)
-        .single();
-
-      if (primeraZona && primeraRuta) {
-        for (const nombreCliente of clientesACrear) {
-          const { data: nuevoCliente, error: errorCrear } = await supabaseAdmin
-            .from('clientes')
-            .insert({
-              codigo: `CLI${Date.now()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
-              nombre: nombreCliente,
-              zona_id: primeraZona.id,
-              ruta_id: primeraRuta.id,
-              activo: true
-            })
-            .select('id, nombre')
-            .single();
-
-          if (!errorCrear && nuevoCliente) {
-            clienteMap.set(normalizeName(nombreCliente), nuevoCliente.id);
-            clientesCreados.set(nombreCliente, nuevoCliente.id);
-            console.log(`Cliente creado: ${nombreCliente} -> ${nuevoCliente.id}`);
-          }
-        }
-      }
-    }
-
-    // Reprocesar asignaciones con los nuevos clientes
-    const asignacionesFinales: any[] = [];
-    for (let i = 0; i < datos.length; i++) {
-      const fila = datos[i];
-      const vendedorNorm = normalizeName(fila.vendedor);
-      const clienteNorm = normalizeName(fila.cliente);
-
-      const vendedorId = vendedorMap.get(vendedorNorm);
-      const clienteId = clienteMap.get(clienteNorm);
-
-      if (!vendedorId || !clienteId) {
-        continue; // Saltar si aún no se puede hacer match
-      }
-
-      const categoriaId = categorias?.[0]?.id;
-      if (!categoriaId) {
-        continue;
-      }
-
-      const asignacion = {
-        vendedor_id: vendedorId,
-        cliente_id: clienteId,
-        categoria_id: categoriaId,
-        fecha_reporte: new Date().toISOString().split('T')[0],
-        estado_activacion: 'pendiente'
-      };
-
-      asignacionesFinales.push(asignacion);
-    }
-
-    console.log(`Asignaciones finales a insertar: ${asignacionesFinales.length}`);
 
     // Insertar asignaciones
     let filasInsertadas = 0;
-    if (asignacionesFinales.length > 0) {
+    if (asignaciones.length > 0) {
       const { error: insertError } = await supabaseAdmin
         .from('asignaciones')
-        .insert(asignacionesFinales);
+        .insert(asignaciones);
       
       if (insertError) {
         return handleError(insertError, 'insertar asignaciones');
       }
       
-      filasInsertadas = asignacionesFinales.length;
+      filasInsertadas = asignaciones.length;
       console.log(`${filasInsertadas} asignaciones insertadas`);
     }
 
-    // Respuesta exitosa con debug info
+    // Respuesta exitosa
     const response: UploadResponse = {
       success: true,
       message: `Archivo procesado exitosamente. ${filasInsertadas} registros insertados de ${datos.length} procesados.`,
@@ -316,11 +261,8 @@ serve(async (req: Request): Promise<Response> => {
         vendedores_encontrados: vendedorMap.size,
         clientes_encontrados: clienteMap.size,
         categorias_encontradas: categorias?.length || 0,
-        debug_vendedores: debugVendedores,
-        debug_clientes: debugClientes,
-        primera_fila: debugFila,
-        errores_detallados: errores.slice(0, 5), // Primeros 5 errores
-        clientes_creados: Array.from(clientesCreados.entries()).map(([nombre, id]) => ({ nombre, id }))
+        clientes_creados: Array.from(clientesCreados.entries()).map(([nombre, id]) => ({ nombre, id })),
+        errores_detallados: errores.slice(0, 5)
       }
     };
 

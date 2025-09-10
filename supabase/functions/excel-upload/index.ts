@@ -1,6 +1,6 @@
 /// <reference path="../types.d.ts" />
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
 
 interface UploadRequest {
@@ -12,18 +12,10 @@ interface UploadRequest {
 interface UploadResponse {
   success: boolean
   message?: string
-  import_run_id?: string
   filas_procesadas?: number
   filas_insertadas?: number
   errores?: string[]
 }
-
-// Definir tipos para el entorno de Deno
-declare const Deno: {
-  env: {
-    get(key: string): string | undefined;
-  };
-};
 
 serve(async (req: Request): Promise<Response> => {
   console.log('=== Inicio de solicitud a excel-upload ===');
@@ -43,17 +35,6 @@ serve(async (req: Request): Promise<Response> => {
     
     if (error instanceof Error) {
       errorMessage = error.message;
-      
-      if (error.message.includes('no encontrado') || 
-          error.message.includes('no existe')) {
-        statusCode = 404;
-      } else if (error.message.includes('no autorizado') ||
-                error.message.includes('credenciales')) {
-        statusCode = 401;
-      } else if (error.message.includes('no válido') ||
-                error.message.includes('inválido')) {
-        statusCode = 400;
-      }
     }
     
     return new Response(
@@ -125,136 +106,101 @@ serve(async (req: Request): Promise<Response> => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhhb2hhdGZwbnNvc3pkdXhnZHlwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzI5MzEzMiwiZXhwIjoyMDcyODY5MTMyfQ._7UR1-L1Jx4YQz-bgp9u_vU-7UHqimt_ErakI9av6cI';
     
     console.log('Creando cliente Supabase...');
-    const supabaseAdmin = createClient(
-      supabaseUrl,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-          detectSessionInUrl: false
-        }
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false
       }
-    ) as SupabaseClient;
+    });
 
     console.log('Cliente Supabase creado correctamente');
 
-    // Normalizador robusto de nombres (quita espacios extra, mayúsculas y acentos)
+    // Normalizador de nombres
     const normalizeName = (value: unknown): string => {
       const str = (value ?? '').toString().trim();
-      const upper = str.normalize('NFD')
+      return str.normalize('NFD')
         .replace(/\p{Diacritic}/gu, '')
         .toUpperCase()
         .replace(/\s+/g, ' ');
-      return upper;
     };
 
-    // Procesar datos de manera robusta y en lotes
-    console.log(`Procesando ${datos.length} filas de datos...`);
-
-    let filasInsertables = 0;
-    let filasInsertadas = 0;
-    const errores: string[] = [];
-
-    // 1) Extraer nombres únicos normalizados de vendedores y clientes
-    const vendedoresNormSet = new Set<string>();
-    const clientesNormSet = new Set<string>();
-
-    for (const fila of datos) {
-      const vendedorNorm = normalizeName(fila.vendedor);
-      const clienteNorm = normalizeName(fila.cliente);
-      if (vendedorNorm) vendedoresNormSet.add(vendedorNorm);
-      if (clienteNorm) clientesNormSet.add(clienteNorm);
+    // Obtener vendedores y clientes existentes
+    console.log('Obteniendo vendedores...');
+    const { data: vendedores, error: errorVendedores } = await supabaseAdmin
+      .from('vendedores')
+      .select('id, nombre');
+    
+    if (errorVendedores) {
+      console.error('Error obteniendo vendedores:', errorVendedores);
+      throw new Error('No se pudieron obtener vendedores');
     }
 
-    console.log(`Nombres únicos (normalizados) → vendedores: ${vendedoresNormSet.size}, clientes: ${clientesNormSet.size}`);
-
-    // 2) Prefetch global y construir mapas normalizados nombre→id
-    const vendedorNombreToId = new Map<string, string>();
-    const clienteNombreToId = new Map<string, string>();
-
-    // Vendedores
-    {
-      const { data, error } = await supabaseAdmin
-        .from('vendedores')
-        .select('id,nombre');
-      if (error) {
-        console.error('Error obteniendo vendedores:', error);
-        throw new Error('No se pudieron obtener vendedores');
-      }
-      (data ?? []).forEach((row: { id: string; nombre: string }) => {
-        vendedorNombreToId.set(normalizeName(row.nombre), row.id);
-      });
-      console.log(`Vendedores cargados: ${vendedorNombreToId.size}`);
+    console.log('Obteniendo clientes...');
+    const { data: clientes, error: errorClientes } = await supabaseAdmin
+      .from('clientes')
+      .select('id, nombre');
+    
+    if (errorClientes) {
+      console.error('Error obteniendo clientes:', errorClientes);
+      throw new Error('No se pudieron obtener clientes');
     }
 
-    // Clientes
-    {
-      const { data, error } = await supabaseAdmin
-        .from('clientes')
-        .select('id,nombre');
-      if (error) {
-        console.error('Error obteniendo clientes:', error);
-        throw new Error('No se pudieron obtener clientes');
-      }
-      (data ?? []).forEach((row: { id: string; nombre: string }) => {
-        clienteNombreToId.set(normalizeName(row.nombre), row.id);
-      });
-      console.log(`Clientes cargados: ${clienteNombreToId.size}`);
-    }
+    // Crear mapas de nombres normalizados a IDs
+    const vendedorMap = new Map<string, string>();
+    const clienteMap = new Map<string, string>();
 
-    // 3) Construir asignaciones a insertar
-    type Asignacion = {
-      vendedor_id: string
-      cliente_id: string
-      fecha_reporte: string
-      estado_activacion: string
-      ensure?: number
-      chocolate?: number
-      alpina?: number
-      super_de_alim?: number
-      condicionate?: number
-    };
+    (vendedores || []).forEach((v: any) => {
+      vendedorMap.set(normalizeName(v.nombre), v.id);
+    });
 
+    (clientes || []).forEach((c: any) => {
+      clienteMap.set(normalizeName(c.nombre), c.id);
+    });
+
+    console.log(`Vendedores cargados: ${vendedorMap.size}`);
+    console.log(`Clientes cargados: ${clienteMap.size}`);
+
+    // Limpiar asignaciones del día
     const hoy = new Date().toISOString().split('T')[0];
-
-    // Limpiar asignaciones del día para evitar duplicados
-    try {
-      const { error: delErr } = await supabaseAdmin
-        .from('asignaciones')
-        .delete()
-        .eq('fecha_reporte', hoy);
-      if (delErr) {
-        console.warn('No se pudieron limpiar asignaciones del día:', delErr);
-      } else {
-        console.log('Asignaciones del día limpiadas');
-      }
-    } catch (e) {
-      console.warn('Excepción limpiando asignaciones del día:', e);
+    console.log('Limpiando asignaciones del día:', hoy);
+    
+    const { error: deleteError } = await supabaseAdmin
+      .from('asignaciones')
+      .delete()
+      .eq('fecha_reporte', hoy);
+    
+    if (deleteError) {
+      console.warn('Error limpiando asignaciones:', deleteError);
+    } else {
+      console.log('Asignaciones del día limpiadas');
     }
 
-    const asignaciones: Asignacion[] = [];
+    // Procesar datos
+    const asignaciones: any[] = [];
+    const errores: string[] = [];
 
     for (let i = 0; i < datos.length; i++) {
       const fila = datos[i];
       const vendedorNorm = normalizeName(fila.vendedor);
       const clienteNorm = normalizeName(fila.cliente);
 
-      const vendedorId = vendedorNombreToId.get(vendedorNorm);
-      const clienteId = clienteNombreToId.get(clienteNorm);
+      const vendedorId = vendedorMap.get(vendedorNorm);
+      const clienteId = clienteMap.get(clienteNorm);
 
       if (!vendedorId || !clienteId) {
-        errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado (Vendedor: ${fila.vendedor || '-'}, Cliente: ${fila.cliente || '-'})`);
+        errores.push(`Fila ${i + 1}: Vendedor o cliente no encontrado (V: ${fila.vendedor}, C: ${fila.cliente})`);
         continue;
       }
 
-      const asignacion: Asignacion = {
+      const asignacion: any = {
         vendedor_id: vendedorId,
         cliente_id: clienteId,
         fecha_reporte: hoy,
         estado_activacion: 'pendiente'
       };
 
+      // Procesar productos
       const toNum = (v: any) => {
         if (v === undefined || v === null || v === '') return undefined;
         const n = Number(v);
@@ -264,7 +210,7 @@ serve(async (req: Request): Promise<Response> => {
       const ensure = toNum(fila.ensure);
       const chocolate = toNum(fila.chocolate);
       const alpina = toNum(fila.alpina);
-      const superDeAlim = toNum(fila.super_de_alim ?? fila['super_de_alim']);
+      const superDeAlim = toNum(fila.super_de_alim);
       const condicionate = toNum(fila.condicionate);
 
       if (ensure !== undefined) asignacion.ensure = ensure;
@@ -276,50 +222,51 @@ serve(async (req: Request): Promise<Response> => {
       asignaciones.push(asignacion);
     }
 
-    filasInsertables = asignaciones.length;
-    console.log(`Asignaciones a insertar: ${filasInsertables}`);
+    console.log(`Asignaciones a insertar: ${asignaciones.length}`);
 
-    // 4) Insertar en lotes
+    // Insertar en lotes
+    let filasInsertadas = 0;
     const batchSize = 500;
+    
     for (let i = 0; i < asignaciones.length; i += batchSize) {
       const batch = asignaciones.slice(i, i + batchSize);
-      const { error } = await supabaseAdmin
+      const { error: insertError } = await supabaseAdmin
         .from('asignaciones')
         .insert(batch);
-      if (error) {
-        console.error(`Error insertando lote ${i / batchSize + 1}:`, error);
-        errores.push(`Error insertando lote ${i / batchSize + 1}: ${error.message}`);
+      
+      if (insertError) {
+        console.error(`Error insertando lote ${i / batchSize + 1}:`, insertError);
+        errores.push(`Error insertando lote ${i / batchSize + 1}: ${insertError.message}`);
       } else {
         filasInsertadas += batch.length;
         console.log(`Lote ${i / batchSize + 1} insertado: ${batch.length} registros`);
       }
     }
 
-    // Intentar refrescar vistas materializadas si existe la RPC
+    // Intentar refrescar vistas
     try {
       await supabaseAdmin.rpc('refresh_materialized_views');
       console.log('Vistas materializadas refrescadas');
     } catch (e) {
-      console.log('No se pudo refrescar vistas materializadas (opcional):', e);
+      console.log('No se pudo refrescar vistas (opcional):', e);
     }
 
     const result = {
       success: true,
       filas_procesadas: datos.length,
-      filas_insertables: filasInsertables,
       filas_insertadas: filasInsertadas,
       errores
     };
 
-    console.log('Datos procesados exitosamente:', result);
+    console.log('Procesamiento completado:', result);
 
     // Respuesta exitosa
     const response: UploadResponse = {
       success: true,
-      message: `Archivo procesado exitosamente. ${result.filas_insertadas} registros insertados de ${result.filas_insertables} procesables.`,
-      filas_procesadas: result.filas_procesadas,
-      filas_insertadas: result.filas_insertadas,
-      errores: result.errores
+      message: `Archivo procesado exitosamente. ${filasInsertadas} registros insertados de ${asignaciones.length} procesables.`,
+      filas_procesadas: datos.length,
+      filas_insertadas: filasInsertadas,
+      errores: errores
     };
 
     return new Response(
@@ -334,6 +281,7 @@ serve(async (req: Request): Promise<Response> => {
     );
 
   } catch (error) {
+    console.error('Error general:', error);
     return handleError(error, 'manejo de solicitud de carga de Excel');
   }
 });

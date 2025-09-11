@@ -347,6 +347,46 @@ COMMENT ON COLUMN asignaciones.estado IS 'Estado de la categoría: ACTIVADO, FAL
 COMMENT ON COLUMN asignaciones.zona IS 'Zona extraída de la ruta (ej: 1L -> 1)';
 
 -- =============================================
+-- FUNCIONES DE AUTENTICACIÓN
+-- =============================================
+
+-- Función para autenticar vendedor/supervisor por código
+CREATE OR REPLACE FUNCTION authenticate_by_code(codigo TEXT)
+RETURNS TABLE (
+    id UUID,
+    nombre TEXT,
+    email TEXT,
+    rol TEXT,
+    vendedor_codigo TEXT,
+    zona TEXT,
+    ruta TEXT,
+    activo BOOLEAN
+) 
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        au.id,
+        au.nombre,
+        au.email,
+        au.rol,
+        au.vendedor_codigo,
+        au.zona,
+        au.ruta,
+        au.activo
+    FROM auth_users au
+    WHERE au.vendedor_codigo = codigo 
+    AND au.activo = true;
+END;
+$$;
+
+-- Dar permisos de ejecución a usuarios anónimos
+GRANT EXECUTE ON FUNCTION authenticate_by_code(TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION authenticate_by_code(TEXT) TO authenticated;
+
+-- =============================================
 -- FINALIZACIÓN
 -- =============================================
 
@@ -356,5 +396,6 @@ BEGIN
     RAISE NOTICE 'Esquema de base de datos creado exitosamente';
     RAISE NOTICE 'Tablas: auth_users, clientes, categorias, asignaciones, import_runs';
     RAISE NOTICE 'RLS habilitado con políticas de seguridad';
+    RAISE NOTICE 'Función de autenticación creada';
     RAISE NOTICE 'Datos semilla insertados';
 END $$;

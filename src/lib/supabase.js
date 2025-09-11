@@ -26,15 +26,28 @@ export const auth = {
   // Login para vendedores/supervisores con código
   async signInVendedor(codigo) {
     try {
-      // Buscar el usuario por código
-      const { data: usuario, error: userError } = await supabase
-        .from('auth_users')
-        .select('*')
-        .eq('vendedor_codigo', codigo.toUpperCase())
-        .single()
+      // Función para autenticar vendedor por código usando función SQL
+      const authenticateVendedor = async (codigo) => {
+        try {
+          const { data, error } = await supabase
+            .rpc('authenticate_by_code', { codigo });
 
-      if (userError || !usuario) {
-        return { data: null, error: { message: 'Código de vendedor no encontrado' } }
+          if (error) throw error;
+          
+          if (!data || data.length === 0) {
+            return { user: null, error: 'Código no válido o usuario inactivo' };
+          }
+          
+          return { user: data[0], error: null };
+        } catch (error) {
+          return { user: null, error: error.message };
+        }
+      };
+
+      const { user, error } = await authenticateVendedor(codigo);
+
+      if (error) {
+        return { data: null, error }
       }
 
       // Crear sesión técnica para el vendedor

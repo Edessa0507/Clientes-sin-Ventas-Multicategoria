@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS asignaciones (
     fecha_reporte DATE NOT NULL,
     vendedor_codigo VARCHAR(20) NOT NULL,
     cliente_id INTEGER NOT NULL,
-    categoria_id INTEGER NOT NULL,
+    categoria_nombre VARCHAR(100) NOT NULL,
     estado VARCHAR(20) CHECK (estado IN ('ACTIVADO', 'FALTA', '0')) NOT NULL,
     supervisor_nombre VARCHAR(255),
     ruta VARCHAR(100),
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS asignaciones (
     
     -- Claves foráneas
     FOREIGN KEY (cliente_id) REFERENCES clientes(cliente_id) ON DELETE CASCADE,
-    FOREIGN KEY (categoria_id) REFERENCES categorias(categoria_id) ON DELETE CASCADE,
+    FOREIGN KEY (categoria_nombre) REFERENCES categorias(categoria_nombre) ON DELETE CASCADE,
     FOREIGN KEY (vendedor_codigo) REFERENCES auth_users(vendedor_codigo) ON DELETE CASCADE
 );
 

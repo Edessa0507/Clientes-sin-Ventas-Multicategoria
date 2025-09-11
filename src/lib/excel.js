@@ -223,6 +223,7 @@ export const excel = {
               fecha_reporte: fechaReporte,
               vendedor_codigo: normalized.vendedor_codigo,
               cliente_id: normalized.cliente_id,
+              cliente_nombre: normalized.cliente_nombre,
               categoria_nombre: cat.categoria_nombre,
               estado: cat.estado,
               supervisor_nombre: normalized.supervisor,

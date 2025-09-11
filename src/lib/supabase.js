@@ -162,7 +162,7 @@ export const db = {
   // Reemplazar asignaciones por fecha (para importación)
   async replaceAsignacionesByFecha(fecha, asignaciones) {
     try {
-      // Iniciar transacción eliminando datos existentes
+      // Eliminar datos existentes para la fecha
       const { error: deleteError } = await supabase
         .from('asignaciones')
         .delete()
@@ -170,14 +170,26 @@ export const db = {
 
       if (deleteError) throw deleteError
 
-      // Insertar nuevas asignaciones
-      const { data, error: insertError } = await supabase
-        .from('asignaciones')
-        .insert(asignaciones)
+      // Insertar asignaciones usando la función SQL que maneja FK automáticamente
+      const insertPromises = asignaciones.map(async (asignacion) => {
+        const { data, error } = await supabase.rpc('import_asignacion', {
+          p_fecha_reporte: asignacion.fecha_reporte,
+          p_vendedor_codigo: asignacion.vendedor_codigo,
+          p_cliente_id: asignacion.cliente_id,
+          p_cliente_nombre: asignacion.cliente_nombre,
+          p_categoria_nombre: asignacion.categoria_nombre,
+          p_estado: asignacion.estado,
+          p_supervisor_nombre: asignacion.supervisor_nombre,
+          p_ruta: asignacion.ruta,
+          p_zona: asignacion.zona
+        })
+        
+        if (error) throw error
+        return data
+      })
 
-      if (insertError) throw insertError
-
-      return { data, error: null }
+      const results = await Promise.all(insertPromises)
+      return { data: results, error: null }
     } catch (error) {
       return { data: null, error }
     }

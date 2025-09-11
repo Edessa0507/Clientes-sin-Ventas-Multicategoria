@@ -146,6 +146,14 @@ ALTER TABLE import_runs ENABLE ROW LEVEL SECURITY;
 -- POLÍTICAS RLS PARA auth_users
 -- =============================================
 
+-- Permitir lectura pública para autenticación por código
+CREATE POLICY "Public read for authentication" ON auth_users
+    FOR SELECT USING (true);
+
+-- Solo admins pueden insertar/actualizar/eliminar
+CREATE POLICY "Admin full access" ON auth_users
+    FOR ALL USING (auth.role() = 'authenticated');
+
 -- Los usuarios pueden ver su propia información
 CREATE POLICY "Users can view own data" ON auth_users
     FOR SELECT USING (

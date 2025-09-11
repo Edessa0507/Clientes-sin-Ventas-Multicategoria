@@ -26,66 +26,58 @@ export const auth = {
   // Login para vendedores/supervisores con código
   async signInVendedor(codigo) {
     try {
-      // Función para autenticar vendedor por código usando función SQL
-      const authenticateVendedor = async (codigo) => {
-        try {
-          const { data, error } = await supabase
-            .rpc('login_vendedor', { codigo });
-
-          if (error) throw error;
-          
-          if (!data) {
-            return { user: null, error: 'Código no válido o usuario inactivo' };
-          }
-          
-          return { user: data, error: null };
-        } catch (error) {
-          return { user: null, error: error.message };
-        }
-      };
-
-      const { user, error } = await authenticateVendedor(codigo);
+      // Autenticar vendedor por código usando función SQL
+      const { data, error } = await supabase
+        .rpc('login_vendedor', { codigo });
 
       if (error) {
-        return { data: null, error }
+        return { data: null, error: error.message }
       }
-
-      // Crear sesión técnica para el vendedor
-      const { data: session, error: sessionError } = await supabase.auth.signInAnonymously()
       
-      if (sessionError) {
-        return { data: null, error: sessionError }
+      if (!data) {
+        return { data: null, error: 'Código no válido o usuario inactivo' };
       }
 
       // Guardar datos del vendedor en el almacenamiento local
-      localStorage.setItem('vendedor_data', JSON.stringify(usuario))
+      localStorage.setItem('vendedor_data', JSON.stringify(data))
+      localStorage.setItem('auth_type', 'vendedor')
       
       return { 
         data: { 
-          user: session.user, 
-          vendedor: usuario 
+          user: { id: data.id, email: data.email }, 
+          vendedor: data 
         }, 
         error: null 
       }
     } catch (error) {
-      return { data: null, error }
+      return { data: null, error: error.message }
     }
   },
 
   // Obtener usuario actual
   async getCurrentUser() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const authType = localStorage.getItem('auth_type')
     const vendedorData = localStorage.getItem('vendedor_data')
     
+    if (authType === 'vendedor' && vendedorData) {
+      const vendedor = JSON.parse(vendedorData)
+      return {
+        user: { id: vendedor.id, email: vendedor.email },
+        vendedor: vendedor
+      }
+    }
+    
+    const { data: { user } } = await supabase.auth.getUser()
     return {
       user,
-      vendedor: vendedorData ? JSON.parse(vendedorData) : null
+      vendedor: null
     }
   },
 
   // Cerrar sesión
   async signOut() {
     localStorage.removeItem('vendedor_data')
+    localStorage.removeItem('auth_type')
     const { error } = await supabase.auth.signOut()
     return { error }
   }

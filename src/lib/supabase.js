@@ -26,21 +26,16 @@ export const auth = {
   // Login para vendedores/supervisores con código
   async signInVendedor(codigo) {
     try {
-      // Función para autenticar vendedor por código usando consulta directa
+      // Función para autenticar vendedor por código usando función SQL
       const authenticateVendedor = async (codigo) => {
         try {
           const { data, error } = await supabase
-            .from('auth_users')
-            .select('*')
-            .eq('vendedor_codigo', codigo)
-            .eq('activo', true)
-            .single();
+            .rpc('login_vendedor', { codigo });
 
-          if (error) {
-            if (error.code === 'PGRST116') {
-              return { user: null, error: 'Código no válido o usuario inactivo' };
-            }
-            throw error;
+          if (error) throw error;
+          
+          if (!data) {
+            return { user: null, error: 'Código no válido o usuario inactivo' };
           }
           
           return { user: data, error: null };

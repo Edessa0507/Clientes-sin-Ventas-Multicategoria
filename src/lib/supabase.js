@@ -34,11 +34,11 @@ export const auth = {
 
           if (error) throw error;
           
-          if (!data || data.length === 0) {
+          if (!data) {
             return { user: null, error: 'Código no válido o usuario inactivo' };
           }
           
-          return { user: data[0], error: null };
+          return { user: data, error: null };
         } catch (error) {
           return { user: null, error: error.message };
         }

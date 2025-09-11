@@ -351,34 +351,40 @@ COMMENT ON COLUMN asignaciones.zona IS 'Zona extraída de la ruta (ej: 1L -> 1)'
 -- =============================================
 
 -- Función para autenticar vendedor/supervisor por código
-CREATE OR REPLACE FUNCTION authenticate_by_code(codigo TEXT)
-RETURNS TABLE (
-    id UUID,
-    nombre TEXT,
-    email TEXT,
-    rol TEXT,
-    vendedor_codigo TEXT,
-    zona TEXT,
-    ruta TEXT,
-    activo BOOLEAN
-) 
+CREATE OR REPLACE FUNCTION authenticate_by_code(codigo text)
+RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+    result_row auth_users%ROWTYPE;
+    result_json json;
 BEGIN
-    RETURN QUERY
-    SELECT 
-        au.id,
-        au.nombre,
-        au.email,
-        au.rol,
-        au.vendedor_codigo,
-        au.zona,
-        au.ruta,
-        au.activo
-    FROM auth_users au
-    WHERE au.vendedor_codigo = codigo 
-    AND au.activo = true;
+    -- Buscar usuario por código
+    SELECT * INTO result_row
+    FROM auth_users 
+    WHERE vendedor_codigo = codigo 
+    AND activo = true
+    LIMIT 1;
+    
+    -- Si no se encuentra, retornar null
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+    
+    -- Convertir a JSON
+    SELECT json_build_object(
+        'id', result_row.id,
+        'nombre', result_row.nombre,
+        'email', result_row.email,
+        'rol', result_row.rol,
+        'vendedor_codigo', result_row.vendedor_codigo,
+        'zona', result_row.zona,
+        'ruta', result_row.ruta,
+        'activo', result_row.activo
+    ) INTO result_json;
+    
+    RETURN result_json;
 END;
 $$;
 

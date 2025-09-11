@@ -2,6 +2,19 @@
 
 PWA moderna para la gestión de clientes sin ventas por categorías, desarrollada con React, Vite, Tailwind CSS y Supabase.
 
+## 🌐 Aplicación Desplegada
+
+**URL de Producción**: [https://edessa0507.github.io/Clientes-sin-Ventas-Multicategoria/](https://edessa0507.github.io/Clientes-sin-Ventas-Multicategoria/)
+
+### Credenciales de Acceso
+
+**Administrador:**
+- **Código**: ADMIN001
+- **Nombre**: GUSTAVO REYES
+- **Email**: gustavo.reyes@edessa.do
+- **Contraseña**: EdessA2748
+- **Rol**: Administrador
+
 ## 🚀 Características
 
 - **PWA Offline-First**: Funciona sin conexión con los últimos datos disponibles

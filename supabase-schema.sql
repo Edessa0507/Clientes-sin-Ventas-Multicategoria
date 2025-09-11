@@ -263,9 +263,12 @@ INSERT INTO categorias (categoria_nombre) VALUES
     ('CEREALES')
 ON CONFLICT (categoria_nombre) DO NOTHING;
 
+-- Insertar usuario administrador
+INSERT INTO auth_users (codigo, nombre, email, password_hash, rol, activo) VALUES
+('ADMIN001', 'GUSTAVO REYES', 'gustavo.reyes@edessa.do', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', true);
+
 -- Insertar usuarios de ejemplo
 INSERT INTO auth_users (vendedor_codigo, nombre, rol, zona, rutas, email) VALUES 
-    ('ADMIN', 'Administrador Sistema', 'admin', NULL, NULL, 'admin@empresa.com'),
     ('SUP01', 'Supervisor Zona Norte', 'supervisor', 'NORTE', ARRAY['1L', '2L', '3L'], NULL),
     ('SUP02', 'Supervisor Zona Sur', 'supervisor', 'SUR', ARRAY['4L', '5L', '6L'], NULL),
     ('E56', 'PEDRO JOSE BURGOS', 'vendedor', 'NORTE', ARRAY['1L'], NULL),

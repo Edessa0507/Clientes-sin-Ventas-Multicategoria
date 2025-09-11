@@ -1,0 +1,116 @@
+# Rol del Agente
+Actúa como Desarrollador Full-Stack senior y Analista de Datos experto en PWA offline-first, Supabase (Postgres + Auth + RLS) y frontend moderno (React + Vite + Tailwind, o HTML + Web Components). Responde en español con código y comentarios claros.
+
+# Objetivo
+Entregar una PWA **simple, robusta y elegante** que:
+1) Permita a cada **vendedor** entrar con su **código** (autocompleta el nombre) para ver sus clientes y el estado de categorías a activar.
+2) Incluya **panel de supervisor** (solo lectura) para ver vendedores de su zona/ruta.
+3) Tenga **panel de administración** para **subir un Excel diario**, validarlo, previsualizarlo y **reemplazar** los datos previos.
+4) Funcione **offline** (último estado disponible) y se despliegue en **GitHub Pages**.
+
+> Sin Edge Functions ni capas extra: toda la lógica vive en el **cliente** + **Supabase** (DB/Auth/RLS). Mantener la seguridad esencial sin complicar.
+
+# Contexto de Datos (basado en Excel adjunto)
+Columnas base: `SUPERVISOR`, `VENDEDOR` (ej. “E56  - (PREV) PEDRO JOSE BURGOS”), `RUTA` (ej. “1L - Lunes 1x”), `CLIENTE` (ej. “61842 - CASA NANDO”), seguido de **columnas de categoría** (ej.: `ENSURE`, `CHOCOLATE`, `ALPINA`, `SUPER DE ALIM.`, `CONDICIONATE`…), cuyos valores son “Activado”, “0” o “FALTA”.
+
+- Extraer de `VENDEDOR` con regex: `^\s*([A-Za-z0-9]+)\s*-\s*(.+)$` → `vendedor_codigo`, `vendedor_nombre`.
+- En `CLIENTE`, separar `cliente_id` (numérico antes del “-”) y `cliente_nombre`.
+
+# Modelo de Datos (mínimo, normalizado y práctico)
+- `auth_users` (id, vendedor_codigo, nombre, rol: 'admin'|'supervisor'|'vendedor', zona, rutas[])
+- `clientes` (cliente_id, cliente_nombre)
+- `categorias` (categoria_id, categoria_nombre) ← derivadas de los encabezados desde la primera columna de categoría encontrada.
+- `asignaciones` (fecha_reporte, vendedor_codigo, cliente_id, categoria_id, estado ENUM('ACTIVADO','FALTA','0'), supervisor_nombre, ruta, zona)
+- (Opcional) `import_runs` (id, fecha, usuario_admin, filas, hash_archivo, notas)
+
+Índices prácticos:  
+- `asignaciones (fecha_reporte, vendedor_codigo)`  
+- `asignaciones (vendedor_codigo, cliente_id)`  
+- `asignaciones (zona, ruta)`  
+- `asignaciones (cliente_id)`  
+- `categorias (categoria_nombre UNIQUE)`
+
+# Reglas de Negocio (simples)
+- **Login Vendedor**: ingresa código → se autocompleta el nombre (solo lectura) → entra a su panel.  
+- **Supervisor**: ve el agregado de sus vendedores (todos o uno) por zona/ruta → solo lectura.  
+- **Admin**: inicia sesión con usuario/contraseña, sube Excel, valida, previsualiza y **reemplaza** por fecha (borra e inserta del día en una sola operación).  
+- El **Excel de hoy** sobrescribe el dataset de hoy (no mezcla días).  
+- Estados de categoría: mapear
+  - “Activado” → `ACTIVADO`
+  - “FALTA” → `FALTA`
+  - “0” u otros vacíos → `0`
+
+# Seguridad esencial (sin complicar)
+- **RLS activado** en `asignaciones`:
+  - rol vendedor: `vendedor_codigo` del JWT == fila.vendedor_codigo (solo SELECT).
+  - rol supervisor: puede SELECT por sus `zona`/`rutas`.
+  - rol admin: SELECT/INSERT/DELETE.
+- **Auth**:
+  - **Admin**: email + contraseña (Supabase Auth).
+  - **Vendedor/Supervisor**: flujo simple por **código** (sin password) → el cliente abre sesión con un **usuario técnico** de rol lector y aplica **filtro de RLS por vendor_code** incluido en un claim del perfil (almacenado en `auth_users` y traído al iniciar). No crear lógica extra: el front consulta `auth_users` y fija el `vendedor_codigo` activo en la sesión del cliente; todo fetch a `asignaciones` se filtra por ese código.
+- **Claves**: usar solo la `anon key` en front. No exponer credenciales de admin. Las operaciones de reemplazo solo se habilitan a usuarios **con rol admin** autenticados.
+
+# Frontend y UI (moderno y responsivo)
+- Stack: **React + Vite + Tailwind** (o HTML + Web Components si se pide minimal).  
+- Estilo: **elegante, limpio**, mobile-first, dark/light con toggle, tipografías suaves, tarjetas con sombras sutiles, **transiciones y micro-interacciones** (hover, focus, check animado para “Activado”).  
+- **Dashboard**:
+  - KPIs: % activación, conteos por categoría, top clientes con más “FALTA”.
+  - Filtros: zona, ruta, cliente, buscador por nombre.
+  - Tabla/lista por cliente → chips por categoría (verde animado para `ACTIVADO`, gris/ámbar para `0`/`FALTA`).  
+- **Login**:
+  - Input `código` → autocompletar `nombre` → botón **Entrar**.  
+  - Supervisor: selector de vendedor (todos / uno).  
+  - Admin: login con credenciales y acceso al panel de importación.
+- **Perfil** (opcional, simple): foto/avatar por usuario (Storage público con paths por user id y tamaño limitado); editable desde el front.
+
+# Importación de Excel (desde el navegador, sin servidor adicional)
+- Librería: **SheetJS** en el cliente.
+- Flujo admin:
+  1) Subir archivo → detectar hoja (por defecto “CLIENTES SIN VENT MULTICATEGORI” si existe).  
+  2) Detectar **columnas de categorías** automáticamente: todas las columnas a la derecha de `CLIENTE`.  
+  3) Validar encabezados mínimos (`SUPERVISOR`, `VENDEDOR`, `RUTA`, `CLIENTE`).  
+  4) Previsualizar (conteos y primeras filas) y normalizar strings (trim, mayúsculas consistentes, sin dobles espacios).  
+  5) Botón **Aplicar** → en una sola operación:  
+     - borrar `asignaciones` del **día seleccionado** (`fecha_reporte`)  
+     - upsert de filas nuevas (por lote) → construir `categorias` si aparecen nuevos encabezados.  
+  6) Registrar `import_runs` (opcional).  
+- Tolerante a errores: si algo falla, no borra nada; mostrar mensaje claro y cómo corregir.
+
+# PWA y Offline
+- Service Worker con **CacheFirst** para assets y **StaleWhileRevalidate** para datos.  
+- **IndexedDB** (Dexie) para cachear:
+  - último dataset por `vendedor_codigo`,  
+  - lista de categorías y clientes.  
+- Si no hay red: mostrar **último snapshot** y un banner “Sin conexión”. Al volver, notificar “Actualizado {hora}”.
+
+# Despliegue (GitHub Pages)
+- Vite con `base: '/<repo>/'`.  
+- Añadir `404.html` que redirija a `index.html` (SPA).  
+- Build → publicar carpeta `dist/` en `gh-pages`.  
+- Variables públicas (URL Supabase, anon key) como **secrets** del repo para el workflow de deploy si se desea automatizar.
+
+# Entregables que debe producir el Agente
+1) **Esquema SQL** con tablas/índices y **RLS** mínima (vendedor/supervisor/admin).  
+2) **Componente de importación** (React o vanilla): drag&drop, preview, normalización y reemplazo por fecha.  
+3) **Pantallas**:
+   - Login (código → nombre → entrar; admin con credenciales).  
+   - Panel vendedor (filtros, tabla, chips/animaciones).  
+   - Panel supervisor (agregado por zona/ruta/vendedor).  
+   - Panel admin (subir Excel, validar, preview, aplicar).  
+4) **PWA**: `manifest.json`, `service-worker.js`, IndexedDB helpers.  
+5) **Guía de despliegue** para GitHub Pages (paso a paso).  
+6) **Seeds** de ejemplo para `auth_users`, `categorias`, `clientes`.
+
+# Criterios de Aceptación (prácticos)
+- Login por **código** con autocompletado de nombre; cada vendedor **solo ve su data**.  
+- Importación diaria **reemplaza** completamente los datos de la fecha elegida sin dejar estados parciales.  
+- Dashboard fluido, responsivo, con animaciones discretas y estados (cargando, vacío, error, sin conexión).  
+- Funciona **offline** con el último dataset.  
+- Publicado en **GitHub Pages** y conectado a Supabase con RLS activa.
+
+# Notas de Implementación
+- Detección de categorías: “todas las columnas a la derecha de CLIENTE” se insertan/updatean en `categorias`.  
+- Mapeo de `CLIENTE`: `cliente_id = número antes del " - "`, `cliente_nombre = resto`.  
+- Estados: normalizar a `ACTIVADO|FALTA|0`.  
+- Validación ligera pero útil: no subir si faltan columnas base; mostrar resumen de filas afectadas; limitar tamaño de archivo (p. ej. 5MB).  
+- Animaciones: usar Tailwind + `@keyframes` o framer-motion (si React).  

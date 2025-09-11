@@ -14,7 +14,7 @@ export default defineConfig({
       }
     })
   ],
-  base: process.env.NODE_ENV === 'production' ? '/Clientes-sin-Ventas-Multicategoria/' : '/',
+  base: '/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',

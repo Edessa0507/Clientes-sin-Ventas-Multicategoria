@@ -1,56 +1,58 @@
 -- Corregir relaciones de base de datos para que funcionen los dashboards
 -- Ejecutar en Supabase SQL Editor
 
--- 1. Recrear tabla asignaciones con estructura correcta y relaciones
+-- 1. Verificar estructuras actuales
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'clientes' 
+ORDER BY ordinal_position;
+
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'categorias' 
+ORDER BY ordinal_position;
+
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'auth_users' 
+ORDER BY ordinal_position;
+
+-- 2. Recrear tabla asignaciones con estructura correcta y relaciones
 DROP TABLE IF EXISTS asignaciones CASCADE;
 
 CREATE TABLE asignaciones (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     fecha_reporte DATE NOT NULL,
     vendedor_codigo VARCHAR(20) NOT NULL,
-    cliente_id INTEGER NOT NULL,
-    categoria_nombre VARCHAR(100) NOT NULL,
+    cliente_codigo VARCHAR(50) NOT NULL,
+    categoria_codigo VARCHAR(50) NOT NULL,
     estado VARCHAR(20) CHECK (estado IN ('ACTIVADO', 'FALTA', '0')) NOT NULL,
     supervisor_nombre VARCHAR(255),
     ruta VARCHAR(100),
     zona VARCHAR(50),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Claves foráneas con ON DELETE CASCADE para evitar conflictos
-    CONSTRAINT fk_asignaciones_vendedor 
-        FOREIGN KEY (vendedor_codigo) 
-        REFERENCES auth_users(vendedor_codigo) 
-        ON DELETE CASCADE,
-    CONSTRAINT fk_asignaciones_categoria 
-        FOREIGN KEY (categoria_nombre) 
-        REFERENCES categorias(categoria_nombre) 
-        ON DELETE CASCADE,
-    CONSTRAINT fk_asignaciones_cliente 
-        FOREIGN KEY (cliente_id) 
-        REFERENCES clientes(cliente_id) 
-        ON DELETE CASCADE
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Crear índices para rendimiento
+-- 3. Crear índices para rendimiento
 CREATE INDEX IF NOT EXISTS idx_asignaciones_fecha ON asignaciones(fecha_reporte);
 CREATE INDEX IF NOT EXISTS idx_asignaciones_vendedor ON asignaciones(vendedor_codigo);
-CREATE INDEX IF NOT EXISTS idx_asignaciones_cliente ON asignaciones(cliente_id);
-CREATE INDEX IF NOT EXISTS idx_asignaciones_categoria ON asignaciones(categoria_nombre);
+CREATE INDEX IF NOT EXISTS idx_asignaciones_cliente ON asignaciones(cliente_codigo);
+CREATE INDEX IF NOT EXISTS idx_asignaciones_categoria ON asignaciones(categoria_codigo);
 
--- 3. Habilitar RLS con política permisiva
+-- 4. Habilitar RLS con política permisiva
 ALTER TABLE asignaciones ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo en asignaciones" ON asignaciones;
 CREATE POLICY "Permitir todo en asignaciones" ON asignaciones FOR ALL USING (true);
 
--- 4. Trigger para updated_at
+-- 5. Trigger para updated_at
 DROP TRIGGER IF EXISTS update_asignaciones_updated_at ON asignaciones;
 CREATE TRIGGER update_asignaciones_updated_at 
     BEFORE UPDATE ON asignaciones 
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
 
--- 5. Asegurar que las tablas relacionadas tengan RLS permisivo
+-- 6. Asegurar que las tablas relacionadas tengan RLS permisivo
 ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo en clientes" ON clientes;
 CREATE POLICY "Permitir todo en clientes" ON clientes FOR ALL USING (true);
@@ -59,7 +61,18 @@ ALTER TABLE categorias ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir todo en categorias" ON categorias;
 CREATE POLICY "Permitir todo en categorias" ON categorias FOR ALL USING (true);
 
--- 6. Reinsertar categorías básicas
+ALTER TABLE auth_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir todo en auth_users" ON auth_users;
+CREATE POLICY "Permitir todo en auth_users" ON auth_users FOR ALL USING (true);
+
+-- 7. Insertar datos de prueba si es necesario
+-- (Descomentar si se necesitan datos de prueba)
+/*
+INSERT INTO asignaciones (fecha_reporte, vendedor_codigo, cliente_codigo, categoria_codigo, estado, supervisor_nombre, ruta, zona) VALUES
+    ('2024-01-15', 'E56', 'CLI001', 'CAT001', 'ACTIVADO', 'Supervisor 1', '1L', 'NORTE'),
+    ('2024-01-15', 'E56', 'CLI002', 'CAT002', 'FALTA', 'Supervisor 1', '1L', 'NORTE'),
+    ('2024-01-15', 'E57', 'CLI003', 'CAT001', '0', 'Supervisor 2', '2L', 'SUR');
+*/
 INSERT INTO categorias (categoria_nombre) VALUES 
     ('ENSURE'),
     ('CHOCOLATE'),

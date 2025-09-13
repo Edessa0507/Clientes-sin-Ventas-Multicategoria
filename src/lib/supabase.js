@@ -92,8 +92,8 @@ export const db = {
       .from('asignaciones')
       .select(`
         *,
-        clientes(cliente_nombre),
-        categorias(categoria_nombre)
+        clientes(nombre),
+        categorias(nombre)
       `)
       .eq('vendedor_codigo', vendedorCodigo)
 
@@ -101,7 +101,7 @@ export const db = {
       query = query.eq('fecha_reporte', fecha)
     }
 
-    const { data, error } = await query.order('cliente_id')
+    const { data, error } = await query.order('cliente_codigo')
     return { data, error }
   },
 
@@ -111,8 +111,8 @@ export const db = {
       .from('asignaciones')
       .select(`
         *,
-        clientes(cliente_nombre),
-        categorias(categoria_nombre)
+        clientes(nombre),
+        categorias(nombre)
       `)
       .eq('zona', zona)
 
@@ -144,7 +144,7 @@ export const db = {
     const { data, error } = await supabase
       .from('categorias')
       .select('*')
-      .order('categoria_nombre')
+      .order('nombre')
     
     return { data, error }
   },
@@ -154,7 +154,7 @@ export const db = {
     const { data, error } = await supabase
       .from('clientes')
       .select('*')
-      .order('cliente_nombre')
+      .order('nombre')
     
     return { data, error }
   },
@@ -182,8 +182,9 @@ export const db = {
             const { data, error } = await supabase.rpc('import_asignacion', {
               p_fecha_reporte: asignacion.fecha_reporte,
               p_vendedor_codigo: asignacion.vendedor_codigo,
-              p_cliente_id: asignacion.cliente_id,
+              p_cliente_codigo: asignacion.cliente_codigo,
               p_cliente_nombre: asignacion.cliente_nombre,
+              p_categoria_codigo: asignacion.categoria_codigo,
               p_categoria_nombre: asignacion.categoria_nombre,
               p_estado: asignacion.estado,
               p_supervisor_nombre: asignacion.supervisor_nombre,

@@ -156,10 +156,10 @@ const SupervisorDashboard = () => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       filtered = filtered.filter(a => 
-        a.clientes?.cliente_nombre?.toLowerCase().includes(term) ||
-        a.cliente_id?.toString().includes(term) ||
+        a.clientes?.nombre?.toLowerCase().includes(term) ||
+        a.cliente_codigo?.toLowerCase().includes(term) ||
         a.vendedor_codigo.toLowerCase().includes(term) ||
-        a.categorias?.categoria_nombre?.toLowerCase().includes(term)
+        a.categorias?.nombre?.toLowerCase().includes(term)
       )
     }
 
@@ -169,7 +169,7 @@ const SupervisorDashboard = () => {
   // Agrupar datos por vendedor
   const vendedoresConDatos = vendedores.map(vendedor => {
     const asignacionesVendedor = filteredData.filter(a => a.vendedor_codigo === vendedor.codigo)
-    const clientesUnicos = [...new Set(asignacionesVendedor.map(a => a.cliente_id))].length
+    const clientesUnicos = [...new Set(asignacionesVendedor.map(a => a.cliente_codigo))].length
     const activados = asignacionesVendedor.filter(a => a.estado === 'ACTIVADO').length
     const faltas = asignacionesVendedor.filter(a => a.estado === 'FALTA').length
     const porcentajeActivacion = asignacionesVendedor.length > 0 ? 

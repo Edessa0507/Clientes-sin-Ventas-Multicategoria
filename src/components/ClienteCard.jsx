@@ -35,10 +35,10 @@ const ClienteCard = ({ cliente }) => {
           <div className="flex-1">
             <div className="flex items-center space-x-3 mb-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {cliente.cliente_nombre}
+                {cliente.nombre}
               </h3>
               <span className="text-sm font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                ID: {cliente.cliente_id}
+                ID: {cliente.codigo}
               </span>
             </div>
             

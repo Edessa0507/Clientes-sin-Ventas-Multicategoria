@@ -27,7 +27,7 @@ const AdminStats = () => {
           zona,
           vendedor_codigo,
           estado,
-          categorias(categoria_nombre)
+          categorias(nombre)
         `)
 
       if (asignaciones) {
@@ -56,8 +56,8 @@ const AdminStats = () => {
           }
 
           // Stats por categoría (faltas)
-          if (asignacion.estado === 'FALTA' && asignacion.categorias?.categoria_nombre) {
-            const catName = asignacion.categorias.categoria_nombre
+          if (asignacion.estado === 'FALTA' && asignacion.categorias?.nombre) {
+            const catName = asignacion.categorias.nombre
             categoriaStats[catName] = (categoriaStats[catName] || 0) + 1
           }
         })

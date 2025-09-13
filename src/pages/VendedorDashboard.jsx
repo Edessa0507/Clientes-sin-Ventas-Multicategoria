@@ -148,15 +148,15 @@ const VendedorDashboard = () => {
 
   // Agrupar asignaciones por cliente
   const clientesAgrupados = filteredAsignaciones.reduce((acc, asignacion) => {
-    const clienteCodigo = asignacion.cliente_codigo
-    if (!acc[clienteCodigo]) {
-      acc[clienteCodigo] = {
-        codigo: clienteCodigo,
-        nombre: asignacion.clientes?.nombre || `Cliente ${clienteCodigo}`,
+    const clienteId = asignacion.cliente_id
+    if (!acc[clienteId]) {
+      acc[clienteId] = {
+        cliente_id: clienteId,
+        cliente_nombre: asignacion.clientes?.cliente_nombre || `Cliente ${clienteId}`,
         asignaciones: []
       }
     }
-    acc[clienteCodigo].asignaciones.push(asignacion)
+    acc[clienteId].asignaciones.push(asignacion)
     return acc
   }, {})
 

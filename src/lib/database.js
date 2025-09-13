@@ -6,9 +6,9 @@ export class OfflineDatabase extends Dexie {
     super('ClientesAppDB')
     
     this.version(1).stores({
-      asignaciones: '++id, fecha_reporte, vendedor_codigo, cliente_codigo, categoria_codigo, estado',
-      clientes: 'codigo, nombre',
-      categorias: 'codigo, nombre',
+      asignaciones: '++id, fecha_reporte, vendedor_codigo, cliente_id, categoria_id, estado',
+      clientes: 'cliente_id, cliente_nombre',
+      categorias: 'categoria_id, categoria_nombre',
       vendedores: 'vendedor_codigo, nombre, rol, zona',
       sync_status: 'key, last_sync, data'
     })

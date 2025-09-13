@@ -120,7 +120,7 @@ const SupervisorDashboard = () => {
 
     // Encontrar mejor vendedor
     const vendedorStats = vendedoresData.map(vendedor => {
-      const asignacionesVendedor = asignacionesData.filter(a => a.vendedor_codigo === vendedor.vendedor_codigo)
+      const asignacionesVendedor = asignacionesData.filter(a => a.vendedor_codigo === vendedor.codigo)
       const activadosVendedor = asignacionesVendedor.filter(a => a.estado === 'ACTIVADO').length
       const porcentaje = asignacionesVendedor.length > 0 ? 
         Math.round((activadosVendedor / asignacionesVendedor.length) * 100) : 0
@@ -157,8 +157,9 @@ const SupervisorDashboard = () => {
       const term = searchTerm.toLowerCase()
       filtered = filtered.filter(a => 
         a.clientes?.cliente_nombre?.toLowerCase().includes(term) ||
-        a.cliente_id.toString().includes(term) ||
-        a.vendedor_codigo.toLowerCase().includes(term)
+        a.cliente_id?.toString().includes(term) ||
+        a.vendedor_codigo.toLowerCase().includes(term) ||
+        a.categorias?.categoria_nombre?.toLowerCase().includes(term)
       )
     }
 
@@ -167,7 +168,7 @@ const SupervisorDashboard = () => {
 
   // Agrupar datos por vendedor
   const vendedoresConDatos = vendedores.map(vendedor => {
-    const asignacionesVendedor = filteredData.filter(a => a.vendedor_codigo === vendedor.vendedor_codigo)
+    const asignacionesVendedor = filteredData.filter(a => a.vendedor_codigo === vendedor.codigo)
     const clientesUnicos = [...new Set(asignacionesVendedor.map(a => a.cliente_id))].length
     const activados = asignacionesVendedor.filter(a => a.estado === 'ACTIVADO').length
     const faltas = asignacionesVendedor.filter(a => a.estado === 'FALTA').length

@@ -59,8 +59,11 @@ const AdminDashboard = () => {
           .gte('fecha_reporte', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
       ])
 
+      // Filtrar solo supervisores para el contador principal
+      const supervisores = (vendedoresRes.data || []).filter(v => v.rol === 'supervisor')
+      
       setStats({
-        totalVendedores: vendedoresRes.data?.length || 0,
+        totalVendedores: supervisores.length, // Ahora muestra supervisores
         totalClientes: clientesRes.data?.length || 0,
         totalAsignaciones: asignacionesRes.data?.length || 0,
         ultimaImportacion: null // Se actualizará con datos reales
@@ -203,7 +206,7 @@ const AdminDashboard = () => {
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatsCard
-                  title="Total Vendedores"
+                  title="Total Supervisores"
                   value={stats.totalVendedores}
                   icon={Users}
                   color="blue"

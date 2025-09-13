@@ -48,7 +48,7 @@ const VendedorDashboard = () => {
   }, [asignaciones, searchTerm, selectedCategoria, selectedEstado])
 
   const loadData = async () => {
-    if (!vendedor?.vendedor_codigo) return
+    if (!vendedor?.codigo) return
 
     setLoading(true)
     try {
@@ -58,7 +58,7 @@ const VendedorDashboard = () => {
       if (isOnline) {
         // Cargar desde Supabase
         const { data: asignacionesData, error } = await db.getAsignacionesByVendedor(
-          vendedor.vendedor_codigo
+          vendedor.codigo
         )
         
         if (error) throw error
@@ -69,11 +69,11 @@ const VendedorDashboard = () => {
         categoriasData = catData || []
 
         // Guardar en cache
-        await offline.cacheAsignaciones(vendedor.vendedor_codigo, data)
+        await offline.cacheAsignaciones(vendedor.codigo, data)
         await offline.cacheCategorias(categoriasData)
       } else {
         // Cargar desde cache
-        data = await offline.getCachedAsignaciones(vendedor.vendedor_codigo)
+        data = await offline.getCachedAsignaciones(vendedor.codigo)
         categoriasData = await offline.getCachedCategorias()
         
         if (data.length === 0) {
@@ -182,7 +182,7 @@ const VendedorDashboard = () => {
                     {vendedor?.nombre}
                   </h1>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Código: {vendedor?.vendedor_codigo}
+                    Código: {vendedor?.codigo}
                   </p>
                 </div>
               </div>

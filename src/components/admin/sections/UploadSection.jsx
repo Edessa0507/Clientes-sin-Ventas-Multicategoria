@@ -134,7 +134,7 @@ const UploadSection = () => {
 
       setPreviewData({
         original: jsonData.slice(0, 10), // Primeras 10 filas para preview
-        processed: processedData.slice(0, 10),
+        processed: processedData, // TODOS los datos procesados, no solo 10
         totalRows: jsonData.length,
         validRows: processedData.length,
         errors: jsonData.length - processedData.length

@@ -14,7 +14,7 @@ export const auth = {
       
       const { data: user, error } = await supabase
         .from(table)
-        .select('*')
+        .select('id, codigo, nombre_completo, zona_id, supervisor_id')
         .eq('codigo', codigo)
         .eq('activo', true)
         .single()
@@ -45,31 +45,36 @@ export const auth = {
   // Login para administradores con email/password
   async loginAdmin(email, password) {
     try {
-      // Usar función SQL para validar credenciales
-      const { data, error } = await supabase
-        .rpc('validate_admin_login', {
-          email_input: email,
-          password_input: password
-        })
+      const { data, error } = await supabase.rpc('validate_admin_login', {
+        email_input: email,
+        password_input: password
+      });
 
-      if (error) throw error
-
-      if (!data || data.length === 0) {
-        throw new Error('Credenciales inválidas')
+      if (error) {
+        console.error('Error RPC:', error);
+        throw new Error('Error al contactar el servidor de validación.');
       }
 
-      const adminData = data[0]
-      return {
+      if (!data) {
+        throw new Error('Credenciales inválidas o usuario inactivo.');
+      }
+
+      // La función RPC devuelve el registro del administrador si es válido
+      const session = {
         user: {
-          id: adminData.id,
-          email: adminData.email,
-          nombre_completo: adminData.nombre_completo,
-          tipo: 'admin'
+          id: data.id,
+          email: data.email,
+          nombre: data.nombre_completo,
+          tipo: 'admin',
         }
-      }
+      };
+
+      localStorage.setItem('session', JSON.stringify(session));
+      return { data: session, error: null };
+
     } catch (error) {
-      console.error('Error en login admin:', error)
-      throw error
+      console.error('Error en loginAdmin:', error.message);
+      return { data: null, error: error.message };
     }
   },
 

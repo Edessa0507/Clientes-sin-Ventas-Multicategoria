@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
 import { adminService } from '../../../lib/supabase'
+import { dashboardService } from '../../../lib/dashboardService'
+import { auth } from '../../../lib/supabase'
 import toast from 'react-hot-toast'
 
 const DashboardSection = () => {
@@ -23,6 +25,7 @@ const DashboardSection = () => {
     totalClientes: 0,
     ultimaImportacion: null
   })
+  const [dashboardData, setDashboardData] = useState(null)
   const [chartData, setChartData] = useState([])
   const [pieData, setPieData] = useState([])
 
@@ -33,23 +36,36 @@ const DashboardSection = () => {
   const loadDashboardData = async () => {
     setLoading(true)
     try {
-      const result = await adminService.getDashboardStats()
-      if (result.data) {
-        setStats(result.data)
+      const session = auth.getSession()
+      
+      // Cargar estadísticas básicas
+      const statsResult = await adminService.getDashboardStats()
+      if (statsResult.data) {
+        setStats(statsResult.data)
+      }
+      
+      // Cargar indicadores reales
+      const dashboardResult = await dashboardService.getDashboardData(session)
+      if (dashboardResult.data) {
+        setDashboardData(dashboardResult.data)
         
-        // Datos de ejemplo para gráficos
-        setChartData([
-          { zona: 'Santo Domingo', vendedores: 15, clientes: 450, activacion: 78 },
-          { zona: 'Santiago', vendedores: 8, clientes: 280, activacion: 65 },
-          { zona: 'Este', vendedores: 6, clientes: 190, activacion: 82 }
-        ])
+        // Convertir datos para gráficos
+        const coberturaData = Object.entries(dashboardResult.data.cobertura.clientesPorSupervisor || {}).map(([codigo, data]) => ({
+          supervisor: data.nombre.substring(0, 20),
+          clientes: data.total,
+          codigo
+        }))
+        setChartData(coberturaData)
 
-        setPieData([
-          { name: 'Ensure', value: 35, color: '#3b82f6' },
-          { name: 'Chocolate', value: 28, color: '#10b981' },
-          { name: 'Alpina', value: 22, color: '#f59e0b' },
-          { name: 'Super de Alim.', value: 15, color: '#ef4444' }
-        ])
+        // Datos para gráfico de pie - activación por categoría
+        const activacionData = Object.entries(dashboardResult.data.activacionCategoria || {}).map(([categoria, data]) => ({
+          name: categoria.replace('_', ' '),
+          value: data.porcentaje,
+          color: categoria === 'ENSURE' ? '#3b82f6' : 
+                 categoria === 'CHOCOLATE' ? '#10b981' : 
+                 categoria === 'ALPINA' ? '#f59e0b' : '#ef4444'
+        }))
+        setPieData(activacionData)
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error)

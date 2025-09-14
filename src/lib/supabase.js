@@ -14,11 +14,11 @@ export const auth = {
       let query = supabase.from(table).select('id, codigo, nombre_completo, zona_id, supervisor_id, email').eq('activo', true)
       
       if (tipo === 'supervisor') {
-        // Para supervisores: buscar por email (case-insensitive)
-        query = query.or(`email.ilike.${codigo.toLowerCase()},codigo.ilike.${codigo.toUpperCase()}`)
+        // Para supervisores: buscar por email exacto (case-insensitive)
+        query = query.eq('email', codigo.toLowerCase())
       } else {
-        // Para vendedores: buscar por código (case-insensitive)
-        query = query.ilike('codigo', codigo.toUpperCase())
+        // Para vendedores: buscar por código exacto (case-insensitive)
+        query = query.eq('codigo', codigo.toUpperCase())
       }
       
       const { data, error } = await query.maybeSingle();
@@ -94,11 +94,11 @@ export const auth = {
       let query = supabase.from(table).select('nombre_completo').eq('activo', true)
       
       if (tipo === 'supervisor') {
-        // Para supervisores: buscar por email o código (case-insensitive)
-        query = query.or(`email.ilike.${codigo.toLowerCase()},codigo.ilike.${codigo.toUpperCase()}`)
+        // Para supervisores: buscar por email exacto (case-insensitive)
+        query = query.eq('email', codigo.toLowerCase())
       } else {
-        // Para vendedores: buscar por código (case-insensitive)
-        query = query.ilike('codigo', codigo.toUpperCase())
+        // Para vendedores: buscar por código exacto (case-insensitive)
+        query = query.eq('codigo', codigo.toUpperCase())
       }
       
       const { data, error } = await query.maybeSingle();

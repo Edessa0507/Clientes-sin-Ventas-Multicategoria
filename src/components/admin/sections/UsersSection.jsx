@@ -259,44 +259,58 @@ const UsersSection = () => {
                   key={user.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {user.nombre.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                        <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
+                          <span className="text-sm font-medium text-primary-600 dark:text-primary-400">
+                            {user.nombre_completo?.charAt(0) || user.codigo?.charAt(0) || '?'}
                           </span>
                         </div>
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {user.nombre}
+                          {user.nombre_completo || 'Sin nombre'}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {user.codigo} • {user.email}
+                          {user.codigo}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {getRoleBadge(user.tipo)}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      user.tipo === 'admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                      user.tipo === 'supervisor' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                      'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    }`}>
+                      {user.tipo === 'admin' ? (
+                        <>
+                          <Shield className="w-3 h-3 mr-1" />
+                          Administrador
+                        </>
+                      ) : user.tipo === 'supervisor' ? (
+                        <>
+                          <Users className="w-3 h-3 mr-1" />
+                          Supervisor
+                        </>
+                      ) : (
+                        <>
+                          <User className="w-3 h-3 mr-1" />
+                          Vendedor
+                        </>
+                      )}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    <div>
-                      <div>{user.zona}</div>
-                      {user.supervisor && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Sup: {user.supervisor}
-                        </div>
-                      )}
-                    </div>
+                    {user.zona_nombre || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
-                      onClick={() => handleToggleStatus(user.id)}
+                      onClick={() => handleToggleStatus(user.id, !user.activo)}
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         user.activo
                           ? 'bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200'
@@ -339,7 +353,7 @@ const UsersSection = () => {
                       </button>
                     </div>
                   </td>
-                </tr>
+                </motion.tr>
               ))}
             </tbody>
           </table>

@@ -1,13 +1,15 @@
 -- Corrección del esquema para eliminar dependencias de auth.users
 -- Ejecutar en Supabase SQL Editor
 
--- 1. Eliminar las columnas user_id que causan problemas
-ALTER TABLE supervisores DROP COLUMN IF EXISTS user_id;
-ALTER TABLE vendedores DROP COLUMN IF EXISTS user_id;
-
--- 2. Recrear las políticas RLS sin dependencias de auth.users
+-- 1. Eliminar políticas que dependen de user_id PRIMERO
 DROP POLICY IF EXISTS "Vendedores pueden ver sus propios datos" ON vendedores;
 DROP POLICY IF EXISTS "Supervisores pueden ver sus propios datos" ON supervisores;
+DROP POLICY IF EXISTS "Supervisores pueden ver sus vendedores" ON vendedores;
+DROP POLICY IF EXISTS "Supervisores pueden ver asignaciones de sus vendedores" ON asignaciones;
+
+-- 2. Ahora eliminar las columnas user_id
+ALTER TABLE supervisores DROP COLUMN IF EXISTS user_id CASCADE;
+ALTER TABLE vendedores DROP COLUMN IF EXISTS user_id CASCADE;
 
 -- 3. Crear nuevas políticas basadas solo en códigos
 CREATE POLICY "Vendedores pueden ver sus propios datos" ON vendedores

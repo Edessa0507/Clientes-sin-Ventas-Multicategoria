@@ -45,28 +45,31 @@ export const auth = {
   // Login para administradores con email/password
   async loginAdmin(email, password) {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
+      // Usar función SQL para validar credenciales
+      const { data, error } = await supabase
+        .rpc('validate_admin_login', {
+          email_input: email,
+          password_input: password
+        })
 
       if (error) throw error
 
-      // Verificar que es admin
-      const { data: adminData, error: adminError } = await supabase
-        .from('administradores')
-        .select('*')
-        .eq('user_id', data.user.id)
-        .single()
-
-      if (adminError || !adminData) {
-        await supabase.auth.signOut()
-        throw new Error('No tienes permisos de administrador')
+      if (!data || data.length === 0) {
+        throw new Error('Credenciales inválidas')
       }
 
-      return { data, error: null }
+      const adminData = data[0]
+      return {
+        user: {
+          id: adminData.id,
+          email: adminData.email,
+          nombre_completo: adminData.nombre_completo,
+          tipo: 'admin'
+        }
+      }
     } catch (error) {
-      return { data: null, error: error.message }
+      console.error('Error en login admin:', error)
+      throw error
     }
   },
 

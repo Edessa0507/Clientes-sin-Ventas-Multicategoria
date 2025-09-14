@@ -117,8 +117,6 @@ const UploadSection = () => {
             ruta_nombre: extractName(row.RUTA),
             cliente_codigo: clienteCodigo,
             cliente_nombre: clienteNombre,
-            zona_codigo: 'SDO', // Por defecto
-            zona_nombre: 'Santo Domingo',
             categorias: {
               ENSURE: normalizeEstado(row.ENSURE),
               CHOCOLATE: normalizeEstado(row.CHOCOLATE),
@@ -193,8 +191,6 @@ const UploadSection = () => {
             supervisor_nombre: row.supervisor_nombre,
             vendedor_codigo: row.vendedor_codigo,
             vendedor_nombre: row.vendedor_nombre,
-            zona_codigo: row.zona_codigo,
-            zona_nombre: row.zona_nombre,
             ruta_codigo: row.ruta_codigo,
             ruta_nombre: row.ruta_nombre,
             cliente_codigo: row.cliente_codigo,

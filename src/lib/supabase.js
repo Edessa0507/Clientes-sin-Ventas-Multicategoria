@@ -7,31 +7,31 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Funciones de autenticación
 export const auth = {
-  // Login para vendedores y supervisores con código
+  // Login con código para vendedores y supervisores
   async loginWithCode(codigo, tipo) {
     try {
       let table = tipo === 'supervisor' ? 'supervisores' : 'vendedores'
       
-      const { data: user, error } = await supabase
+      const { data, error } = await supabase
         .from(table)
         .select('id, codigo, nombre_completo, zona_id, supervisor_id')
         .eq('codigo', codigo)
         .eq('activo', true)
-        .single()
+        .maybeSingle();
 
-      if (error || !user) {
+      if (error || !data) {
         throw new Error('Código no válido o usuario inactivo')
       }
 
       // Crear sesión personalizada
       const session = {
         user: {
-          id: user.id,
-          codigo: user.codigo,
-          nombre: user.nombre_completo,
+          id: data.id,
+          codigo: data.codigo,
+          nombre: data.nombre_completo,
           tipo: tipo,
-          zona_id: user.zona_id,
-          supervisor_id: user.supervisor_id
+          zona_id: data.zona_id,
+          supervisor_id: data.supervisor_id
         }
       }
 
@@ -100,7 +100,7 @@ export const auth = {
         .select('nombre_completo')
         .eq('codigo', codigo)
         .eq('activo', true)
-        .single()
+        .maybeSingle();
 
       if (error || !data) return null
       return data.nombre_completo

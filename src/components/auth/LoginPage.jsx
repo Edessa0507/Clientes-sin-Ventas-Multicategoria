@@ -118,7 +118,7 @@ const LoginPage = () => {
   const IconComponent = currentConfig.icon
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 px-4 py-4 sm:px-6 lg:px-8">
       {/* Botón de tema */}
       <button
         onClick={toggleDarkMode}
@@ -135,7 +135,7 @@ const LoginPage = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-md w-full space-y-8"
+        className="max-w-md w-full space-y-4 sm:space-y-6"
       >
         {/* Header */}
         <div className="text-center">
@@ -143,9 +143,21 @@ const LoginPage = () => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className={`mx-auto h-16 w-16 rounded-full bg-${currentConfig.color}-100 dark:bg-${currentConfig.color}-900 flex items-center justify-center mb-4`}
+            className={`mx-auto h-16 w-16 rounded-full flex items-center justify-center mb-4 ${
+              loginType === 'vendedor' 
+                ? 'bg-blue-100 dark:bg-blue-900'
+                : loginType === 'supervisor'
+                ? 'bg-green-100 dark:bg-green-900'
+                : 'bg-amber-100 dark:bg-amber-900'
+            }`}
           >
-            <IconComponent className={`h-8 w-8 text-${currentConfig.color}-600 dark:text-${currentConfig.color}-400`} />
+            <IconComponent className={`h-8 w-8 ${
+              loginType === 'vendedor' 
+                ? 'text-blue-600 dark:text-blue-400'
+                : loginType === 'supervisor'
+                ? 'text-green-600 dark:text-green-400'
+                : 'text-amber-600 dark:text-amber-400'
+            }`} />
           </motion.div>
           
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -170,8 +182,12 @@ const LoginPage = () => {
                 }}
                 className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 ${
                   loginType === type
-                    ? `bg-${config.color}-600 text-white shadow-sm`
-                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                    ? type === 'vendedor' 
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : type === 'supervisor'
+                      ? 'bg-green-600 text-white shadow-sm'
+                      : 'bg-amber-600 text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-600'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -306,7 +322,13 @@ const LoginPage = () => {
               <button
                 type="submit"
                 disabled={loading || (loginType !== 'admin' && !autocompletedName)}
-                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-${currentConfig.color}-600 hover:bg-${currentConfig.color}-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${currentConfig.color}-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200`}
+                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                  loginType === 'vendedor' 
+                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                    : loginType === 'supervisor'
+                    ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                    : 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500'
+                }`}
               >
                 {loading ? (
                   <div className="flex items-center space-x-2">

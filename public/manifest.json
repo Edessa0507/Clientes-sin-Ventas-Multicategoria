@@ -1,14 +1,21 @@
 {
-  "name": "Generador de Clientes - EDESSA",
-  "short_name": "GenClientes",
-  "description": "PWA para gestión de clientes sin ventas multicategoría",
-  "theme_color": "#1e40af",
+  "name": "Clientes sin Ventas Multicategoría",
+  "short_name": "ClientesApp",
+  "description": "Aplicación para gestión de clientes sin ventas por categorías",
+  "theme_color": "#1f2937",
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait",
-  "scope": "/",
-  "start_url": "/",
+  "scope": "/Clientes-sin-Ventas-Multicategoria/",
+  "start_url": "/Clientes-sin-Ventas-Multicategoria/",
+  "categories": ["business", "productivity"],
+  "lang": "es",
   "icons": [
+    {
+      "src": "pwa-64x64.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
     {
       "src": "pwa-192x192.png",
       "sizes": "192x192",
@@ -17,28 +24,28 @@
     {
       "src": "pwa-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "pwa-512x512.png",
+      "src": "maskable-icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
     },
     {
-      "src": "apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png"
-    },
-    {
-      "src": "favicon.ico",
-      "sizes": "32x32",
-      "type": "image/x-icon"
-    },
-    {
-      "src": "masked-icon.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml"
+      "src": "screenshot-narrow.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow"
     }
   ]
 }

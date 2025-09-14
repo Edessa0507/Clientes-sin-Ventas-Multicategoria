@@ -1,173 +1,220 @@
-# Rol del Agente
-Actúa como Desarrollador Full-Stack senior y Analista de Datos, experto en PWA offline-first, Supabase (Postgres + Auth + RLS), y frontend moderno (React + Vite + Tailwind, o alternativa ligera con HTML + Web Components). Responde en español, con código y comentarios claros y precisos.
+ # Rol del Agente
+Actúa como Desarrollador Full-Stack senior y Analista de Datos experto en PWA offline-first, Supabase (Postgres + Auth + RLS) y frontend moderno (React + Vite + Tailwind o HTML + Web Components). Responde en español, con código y comentarios claros.
 
-# Contexto Operativo
-- Existe un Excel diario que lista, por vendedor y cliente, categorías de producto vendidas y categorías a “activar”.
-- Hoy los supervisores filtran por zona/ruta y envían capturas a cada vendedor.
-- Se requiere automatizar via **PWA**: cada vendedor inicia sesión con su **código** y ve, por cliente, el progreso/estado de sus categorías a activar.
+# Credenciales de supabase
 
-# Objetivo General
-Construir una **PWA robusta, responsive y offline-first** que:
-1) Permita a los **vendedores** autenticarse por **código** y confirmar su **nombre** autocompletado para entrar a su panel.
-2) Muestre un **tablero de categorías** por cliente/ruta, con indicadores visuales modernos (ícono/animación en lugar de “Activado”).
-3) Incluya un **panel de administración** para subir el Excel a diario, validarlo, previsualizar cambios y **reemplazar** los datos previos con auditoría.
-4) Operación en **free tier** (Supabase + Netlify), con **modo offline** y sincronización al reconectar.
+URL: https://ualdsvobfonbmsuhmtsr.supabase.co
 
-# Reglas de Negocio y Lógica Clave
-- **Login por código** extraído de la cadena “{CODIGO} - {NOMBRE}”.
-  - Ejemplo: “E56  - (PREV) PEDRO JOSE BURGOS” → `VendedorCodigo = "E56"`, `VendedorNombre = "(PREV) PEDRO JOSE BURGOS"`.
-  - En el login: el usuario escribe su **código**; el sistema autocompleta el **nombre** (solo lectura) para confirmar antes de “Iniciar sesión”.
-- **Vista del Vendedor**:
-  - Filtros: zona, ruta, cliente (y búsqueda por nombre de cliente).
-  - Lista/tabla de clientes asignados con **progreso de categorías** (activadas vs. por activar).
-  - UI moderna con micro-interacciones y transiciones sutiles. Reemplazar texto “Activado” por ícono/animación (check animado).
-  - **No puede modificar** datos de la aplicación.
-- **Vista del Supervisor**:
-  - Puede ver todos sus vendedores asignados; elegir “todos” o uno específico para revisar progreso.
-  - **No puede modificar** datos de la aplicación.
-- **Panel de Administración**:
-  - Carga de Excel diaria (drag&drop + selección de hoja).
-  - Validación de estructura/columnas; **vista previa** de cambios (nuevos/actualizados/eliminados).
-  - Acción “Aplicar importación” que **reemplaza** la data operativa del día (transacción atómica: truncate+insert o swap de tablas).
-  - Auditoría: quién sube, cuándo, cantidad de filas, hash del archivo, hoja usada, resumen de diffs.
-  - Gestión de usuarios y roles (Admin / Supervisor / Vendedor).
-- **Fuente principal**: hoja del Excel (p. ej. “CLIENTES SIN VENT MULTICATEGORI”).
-  - Detección automática de columnas y **wizard de mapeo** si encabezados no coinciden.
-  - Replicar la lógica que hacía Excel (cálculos/flags) ahora en **SQL** (vistas/materialized views) en Supabase.
+anonpublic: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhbGRzdm9iZm9uYm1zdWhtdHNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4MTg4OTgsImV4cCI6MjA3MzM5NDg5OH0.gCP0Mz-p23PCHD9n5E1Ic8RCEkMLKEa7D6z8q6edUog
 
-# Datos de Entrada (Excel)
-- Estructura mínima esperada (ajústala tras analizar el archivo real y permite mapeo flexible):
-  - `FechaReporte`, `Zona`, `Ruta`, `VendedorDisplay` (“E56  - (PREV) NOMBRE…”),
-    `VendedorCodigo` (derivado), `VendedorNombre` (derivado),
-    `ClienteId`, `ClienteNombre`, `CategoriaId`, `CategoriaNombre`,
-    `EstadoActivacion`/flag (o base para calcularlo), métricas de venta recientes si aplican.
-- Requisitos de importación:
-  - Validar encabezados, tipos, duplicados por **(FechaReporte, VendedorCodigo, ClienteId, CategoriaId)**.
-  - Normalización de strings (trim, mayúsculas/minúsculas consistentes, eliminar dobles espacios).
-  - La importación **sustituye** el dataset vigente del día (usar **transacciones**; no dejar estado parcial).
-  - Mantener **histórico/snapshot** (opcional) para auditoría/rollbacks.
+# Objetivo
+Entregar una PWA **simple, robusta y elegante** que:
+1) Permita a cada **vendedor** entrar con su **código** (autocompleta el nombre del vendedor debajo del inicio de sesión para que confirme que colocó su código correctamente) y ver sus clientes y el estado de cada categoría (“Activado” o “0”).
+2) Permita a cada **Supervidor** entrar con su **código** (autocompleta el nombre del vendedor debajo del inicio de sesión para que confirme que colocó su código correctamente) Incluya **panel de supervisor** (solo lectura) para ver los vendedores de su zona/ruta y su progreso, pudiendo filtrar por un vendedor específico, por varios a la vez para comparar sus progresos o por todos simultáneamente.
+3) Tenga **panel de administración** en el que el administrador va a iniciar sesión para **subir un Excel diario**, validarlo, previsualizarlo y **reemplazar** los datos previos. Ese panel de administración debe contener:
 
-# Modelo de Datos (Supabase / Postgres)
-Proponer y entregar SQL para:
-- **Tablas principales**: `vendedores`, `zonas`, `rutas`, `clientes`, `categorias`,
-  `asignaciones` (vendedor-cliente-categoria), `estados_activacion`, `import_runs` (auditoría),
-  y una `auth_users` (mapeo código / nombre / rol / supervisor_id / zona).
-- **Staging**: tabla temporal para cargar Excel y validar antes de aplicar.
-- **Vistas/materialized views**: progreso por vendedor/cliente y KPIs por zona, ruta, fecha.
-- **Índices**: búsquedas por vendedor, cliente, ruta, fecha; combos adecuados para filtros frecuentes.
-- **Constraints**: llaves foráneas, unicidad para evitar duplicados, validaciones de dominio.
-- **Funciones/Triggers**: derivar `VendedorCodigo` y `VendedorNombre` desde `VendedorDisplay` cuando aplique; sellar timestamps, usuario que modifica, etc.
+**SECCIÓN PRINCIPAL**
+- Total Supervisores  
+- Total Clientes  
+- Última Importación  
+- Rendimiento por Zona  
+- Top Vendedores  
+- Categorías Más Faltantes  
+- Resumen general: ventas activas, vendedores activos, categorías con faltante  
+- Tabla final para ver las importaciones recientes
 
-# Seguridad y Acceso (RLS)
-- Activar RLS en tablas con datos sensibles.
-- Políticas RLS:
-  - **Vendedor**: lectura únicamente de filas donde `vendedor_codigo` coincide con claim JWT (o mapping seguro).
-  - **Supervisor**: lectura de filas dentro de sus **zonas/rutas** asignadas.
-  - **Admin**: lectura/escritura total, incl. importación.
-- **Autenticación**:
-  - **Admin**: es el **único que inicia con contraseña** en la ventana de login.
-  - **Vendedor/Supervisor**: login por **código** con autocompletar de nombre (sin contraseña). Implementar **Edge Function** para emitir JWT con claim `role` y `vendedor_codigo` / `supervisor_id` tras validar existencia activa en `auth_users`. Ese endpoint debe estar protegido para evitar enumeración (rate limit, captcha ligero opcional).
-- No exponer `service_role` en el cliente. Las operaciones administrativas (importación, gestión de usuarios) se hacen vía **Edge Functions** con `service_role`, nunca desde el navegador.
-- Entregar políticas RLS **testeadas** y **seeds** de usuarios (admin, supervisores, vendedores).
+**SECCIÓN SUBIR ARCHIVO**
+- Opción de importar el Excel y elegir, antes de importarlo, si **reemplazará** en la base de datos de Supabase los datos existentes o si se **agregarán** en modo **incremental**.  
+  Nota para el usuario: “Importar datos desde Excel. Sube un archivo Excel con los datos de clientes y categorías. El sistema procesará automáticamente las columnas y reemplazará los datos existentes si así lo decides para la fecha seleccionada.” Opción para elegir el rango de fechas que **eliminará**.  
+- Opción para arrastrar y soltar el Excel o buscarlo en el explorador de archivos.  
+- Vista previa moderna de los detalles y cantidades de los datos subidos para poder previsualizarlos antes de importarlos.
 
-# Arquitectura de Solución (Sugerida)
-- **Frontend**: React + Vite + Tailwind (opcional shadcn/ui) + Zustand/Context. Alternativa ligera: HTML + Tailwind + JS + Web Components.
-- **PWA**: Service Worker con `stale-while-revalidate` para assets; cache de datos en **IndexedDB** (Dexie). Cola de sincronización para operaciones pendientes (si en el futuro se permiten acciones).
-- **Backend**: Supabase (Postgres + Auth + Storage + Edge Functions).
-  - **Importación**: Edge Function (TypeScript) que recibe XLSX/CSV (multipart), procesa (sheetjs en server), valida y escribe por lotes dentro de transacción, con logs y resumen de diffs.
-- **Despliegue**: Netlify para el frontend; Supabase para DB/Auth/Storage/Edge. Todo en **free tier**.
+**SECCIÓN DASHBOARD**
+- Vista de gráficos (barras, pastel), tablas y componentes modernos e interactivos.  
+- Indicadores:
+  1) **Cobertura básica**  
+     • Clientes por Supervisor / Vendedor / Ruta  
+     Cálculo: `COUNT(DISTINCT CLIENTE)` por cada dimensión.
+  2) **Clientes totalmente activados (todas las categorías)**  
+     • % Clientes “Totalmente Activados”  
+     Cálculo: `AVG(CASE WHEN CONDICIONATE='Activado' THEN 1 ELSE 0 END)` por grupo.
+  3) **Clientes con FALTA (al menos una categoría en 0)**  
+     • % Clientes con FALTA  
+     Cálculo: `AVG(CASE WHEN CONDICIONATE='FALTA' THEN 1 ELSE 0 END)` por grupo.
+  4) **Activación por categoría**  
+     • % Activación Ensure / Chocolate / Alpina / Super de Alim.  
+     Cálculo por categoría: `AVG(CASE WHEN CATEGORIA='Activado' THEN 1 ELSE 0 END)` por grupo.
+  5) **Intensidad de activación por cliente**  
+     • Promedio de categorías activadas por cliente (0–4)  
+     Cálculo: `AVG( (ENSURE='Activado')::int + (CHOCOLATE='Activado')::int + (ALPINA='Activado')::int + (SUPER_DE_ALIM='Activado')::int )` por grupo.
+  6) **Distribución por tipo de cliente (según # de categorías activas)**  
+     • Clientes sin activación (0 categorías)  
+       Cálculo: `COUNT(*)` donde las 4 categorías = 0 (subconjunto de “FALTA”).  
+     • Clientes monocategoría (1 categoría activada)  
+       Cálculo: `COUNT(*)` con suma de categorías activadas = 1.  
+     • Clientes multicategoría (≥2 categorías)  
+       Cálculo: `COUNT(*)` con suma ≥ 2.  
+     • Clientes “full” (4/4) = totalmente activados  
+       Cálculo: `COUNT(*)` con suma = 4 (equivale a `CONDICIONATE='Activado'`).
+  7) **Penetración por categoría (por fuerza de ventas)**  
+     • Penetración de producto por Supervisor / Vendedor / Ruta  
+     Cálculo (por producto): `AVG(CASE WHEN CATEGORIA='Activado' THEN 1 ELSE 0 END)` en cada dimensión.
+  8) **Participación de cada categoría en la activación total**  
+     • Share de activaciones por categoría  
+     Cálculo:  
+     - Numerador: `SUM( (CATEGORIA='Activado')::int )`  
+     - Denominador: `SUM( (ENSURE='Activado')::int + (CHOCOLATE='Activado')::int + (ALPINA='Activado')::int + (SUPER_DE_ALIM='Activado')::int )`  
+     - `Share = Numerador / Denominador` (global o por grupo).
 
-# Requisitos de UX/UI
-- Diseño limpio, **mobile-first**, dark/light por preferencia del sistema + toggle.
-- Estados explícitos: cargando, vacío, error, **sin conexión** (banner/toast).
-- Accesibilidad: roles/aria, contraste AA, focus states visibles.
-- Micro-interacciones: hover, animación de check en “Activado”, toasts de confirmación.
-- Localización: **español (es-DO)**; fechas/horas en **America/Santo_Domingo**.
-- **Perfil de usuario**: el vendedor/supervisor puede subir foto de perfil (opcional), cambiarla o eliminarla.
-  - Usar Supabase **Storage** con bucket `profile-photos/` y RLS:
-    - El usuario solo puede leer/escribir su propio objeto `profile-photos/{user_id}/avatar.*`.
-    - Límite de tamaño (p. ej. 2MB), formatos permitidos (PNG/JPG/WebP), validación de dimensiones.
-  - Proveer recorte previo (canvas) y compresión en cliente. Cachear avatar en IndexedDB; revalidar con ETag.
+**SECCIÓN DE ADMINISTRACIÓN DE USUARIOS**
+- Crear usuarios para que inicien sesión, eliminarlos y asignarles roles.
 
-# Persistencia Offline
-- Cachear **último dataset** por vendedor (clientes + categorías + estados).
-- Lectura desde IndexedDB cuando no hay red; al reconectar, sincronizar y mostrar “datos actualizados {hora}”.
-- Preparar cola de acciones futura (por ahora solo lectura), con backoff exponencial y deduplicación.
+**SECCIÓN ACERCA DE LA APP**
+- Guía paso a paso del uso de la aplicación a nivel de usuario, con todas las opciones disponibles y los perfiles de quienes iniciarán sesión. La guía debe ser interactiva, dinámica y moderna, lo más pedagógica e interactiva posible, para conocer completamente la aplicación.
 
-# Flujo por Rol
-- **Vendedor**:
-  1) Introduce **código** → autocompleta **nombre** → confirma → entra.
-  2) Filtra por ruta/cliente → ve progreso de categorías (ícono/animación “Activado”).
-- **Supervisor**:
-  1) Login por código (rol supervisor) → filtra por zona/rutas → vista agregada y por vendedor; opción “todos” o individual.
-- **Admin**:
-  1) Login con **contraseña** → sube Excel → validación + preview → aplicar importación (reemplazo atómico) → auditoría/histórico → gestión de usuarios/roles.
+4) Funcione **offline** (último estado disponible) y se despliegue en **GitHub Pages**.
 
-# API/Edge Functions (entregar)
-- `POST /auth/code-login`: recibe `{code}` (y opcional captcha/nonce), valida en `auth_users`, emite JWT con claims (`role`, `vendedor_codigo`/`supervisor_id`, `zona_ids`); rate-limit + logs.
-- `POST /admin/login`: email/usuario + contraseña (Supabase Auth); devuelve sesión admin.
-- `POST /admin/import`: multipart con archivo, hoja y mapeo; valida, previsualiza diffs y aplica (transacción); devuelve resumen.
-- `GET /progreso`: datos por rol (aplica RLS) con filtros (zona, ruta, cliente, fecha).
-- `GET /me`: perfil y URL firmada de avatar.
-- `PUT /me/avatar`: firma de subida + política de Storage con path aislado por usuario.
+> Sin Edge Functions ni capas extra: toda la lógica vive en el **cliente** + **Supabase** (DB/Auth/RLS). Mantener la seguridad esencial sin complicar.
 
-# Consideraciones de Seguridad
-- **Nunca** exponer `service_role` en cliente.
-- Validar y sanear **todo input** (encabezados, tipos, tamaños, filas máximas).
-- Límites: tamaño de archivo, número de filas por importación; inserts paginados (batch).
-- Anti-enumeración de códigos: rate-limit por IP/cliente y backoff; bloquear códigos inactivos; logs de intentos.
-- CORS estricto; uso de **variables de entorno** en Netlify para claves públicas; .env privado fuera del repo.
+# Contexto de Datos (basado en Excel adjunto)
 
-# Rendimiento y Fiabilidad
-- Objetivo de importación: ≥10k filas en <60s en free tier (orientativo), con batches configurables.
-- Índices adecuados para filtros comunes; EXPLAIN ANALYZE en vistas críticas.
-- Timeouts razonables; reintentos con backoff en fetch y en sincronización offline.
+*Estructura real del archivo de Excel, con datos de ejemplo*
 
-# Pruebas
-- Unitarias: parsing/validación XLSX, derivación de `VendedorCodigo`/`Nombre`, normalización de strings.
-- Integración: RLS (accesos por rol), vistas de progreso y KPIs.
-- E2E mínimas: login por código (vendedor/supervisor), login admin, importación con reemplazo atómico, visualización offline (Mock Service Worker).
+SUPERVISOR	VENDEDOR	RUTA	CLIENTE	ENSURE	CHOCOLATE	ALPINA	SUPER DE ALIM.	CONDICIONATE
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	61842 - CASA NANDO	0	Activado	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	75599 - CASA RUBIO	0	Activado	Activado	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96832 - COLMADO BOMBAYA	Activado	0	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96903 - COLMADO ZAPATA 2	0	Activado	0	Activado	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96909 - COLMADO SAN MIGUEL	0	0	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96910 - COLMADO RAM?REZ	0	0	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96914 - COLMADO LUIS	Activado	Activado	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96919 - COLMADO LA OPCION 1	Activado	Activado	Activado	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96923 - CASA NEREYDA	0	0	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96928 - COLMADO ESQUINA EL LORO	0	Activado	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96929 - CASA GLORIA 3	0	0	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96930 - COLMADO ABT	0	0	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96931 - COLMADO DAEL	0	0	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96944 - COLMADO WILLIAM	0	0	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96947 - CASA GLORIA 1	0	Activado	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96949 - COLMADO ESPERANZA	Activado	Activado	Activado	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96951 - COLMADO MARI LUZ	Activado	Activado	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96958 - COLMADO SAN MIGUEL 3	0	Activado	0	0	FALTA
+CARLOS VALDEZ (Sto. Dom.)	E56  - (PREV) PEDRO JOSE BURGOS	1L   - Lunes 1x	96964 - COLMADO PIMENTEL	0	0	0	0	FALTA
 
-# Entregables
-1) **SQL completo**: CREATE TABLE/INDEX/CONSTRAINTS, vistas/materialized views, funciones/triggers, **RLS** por rol, **seeds** de ejemplo (incluye usuarios: admin, supervisores, vendedores).
-2) **Edge Functions** (TypeScript) para auth por código, login admin, importación con validación, generación de URL firmadas de avatar; logs y transacciones.
-3) **Frontend**:
-   - Pantalla de login (código → autocompletar nombre → iniciar).
-   - Panel vendedor (filtros; grid/lista con estado por categoría e ícono/animación).
-   - Panel supervisor (agregado por zona/ruta/vendedor + drill-down).
-   - Panel admin (upload + validación + preview + aplicar + auditoría + gestión de usuarios).
-   - PWA (manifest, service worker, IndexedDB).
-4) **Scripts utilitarios**: parseo/mapeo XLSX, validadores, normalizadores, helpers de cache/sync.
-5) **Pruebas**: unitarias, integración y E2E con comandos para ejecutarlas.
-6) **Instrucciones de despliegue** paso a paso (Netlify + Supabase), variables de entorno y configuración.
+SUPERVISOR	VENDEDOR	RUTA	CLIENTE	ENSURE	CHOCOLATE	ALPINA	SUPER DE ALIM.	CONDICIONATE
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80188 - CALLE AVELINO#50LOS COCO	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80191 - COLM. JEOVA YIRET	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80200 - COLM. LA UNI??N	0	Activado	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80204 - COLM. SANTANA	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80208 - COLM. JEOVA YIRET1	0	Activado	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80213 - COLM. BRIANNA	0	Activado	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80222 - COL. D Y G	0	Activado	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80225 - COLM. LAS DOS HERMANAS	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80227 - COLM. LA ECONOMIA	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80231 - COLM. VIDAL	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80237 - COLM. LA BENDICI??N	0	0	Activado	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80241 - COLM. PAMELA	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80245 - COLM. REICHON	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80247 - COLM. LOS MELLOS	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80249 - COLM. ROSITA	0	Activado	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80252 - COLM. AMADO	0	Activado	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80259 - CASA RODRIGUEZ	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80260 - LA BENDICI??N	0	0	0	0	FALTA
+ISMAEL ZORRILLA (Sto. Dom.)	E81  - (PREV) YEURI ANTONIO PARDO ACOSTA	1L   - Lunes 1x	80273 - COL. MADELINE	0	0	0	0	FALTA
 
-# Criterios de Aceptación
-- Login por **código** con autocompletado del **nombre** seguro (sin fuga de data de otros vendedores).
-- Importación diaria **reemplaza** datos previos en una **transacción atómica** y queda registrada en auditoría.
-- RLS evita accesos cruzados (tests incluidos).
-- PWA funciona **offline** mostrando el último estado y sincroniza al reconectar.
-- UI moderna: ícono/animación para “Activado”, feedback de estados, accesibilidad.
-- Despliegue exitoso en **Netlify + Supabase** (free tier), sin exponer secretos.
+SUPERVISOR	VENDEDOR	RUTA	CLIENTE	ENSURE	CHOCOLATE	ALPINA	SUPER DE ALIM.	CONDICIONATE
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	35663 - COLM. LOURDES	0	0	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	35869 - COLM. RENZO	Activado	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	41917 - COMERCIAL RODRIGUEZ	0	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	41919 - COL. YENIFER	0	0	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	42712 - COLM. YADIEL	0	0	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	42884 - COL. LA POTENCIA	0	0	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43096 - COLMADO LA BENDICION DE DIOS	0	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43101 - COL. MARIEL	0	Activado	0	Activado	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43102 - COL. CALAZAN	Activado	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43114 - COL. YIRET	0	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43116 - MINI MARKET OMAR	0	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43117 - COL. SOLANO	0	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43118 - COL. POLOLO	0	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43167 - COL. MARTE	0	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43174 - COL. RUBY	Activado	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43178 - COL. LOS CERROS	Activado	0	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43184 - BODEGA SAN LAZARO	0	Activado	0	0	FALTA
+SEVERO ESCALANTE (Sto. Dom.)	E02  - (PREV) LUIS MANUEL DE LA CRUZ R.	1L   - Lunes 1x	43185 - COLM. BELLA VISTA	Activado	Activado	0	0	FALTA
+Columnas base y datos de ejemplo:  
+`SUPERVISOR | VENDEDOR | RUTA | CLIENTE | ENSURE | CHOCOLATE | ALPINA | SUPER DE ALIM. | CONDICIONATE`  
+(Se incluyen múltiples filas con valores como los mostrados en el ejemplo).  
+- Extraer de `VENDEDOR` con regex: `^\s*([A-Za-z0-9]+)\s*-\s*(.+)$` → `vendedor_codigo`, `vendedor_nombre`.  
+- En `CLIENTE`, separar `cliente_id` (numérico antes del “-”) y `cliente_nombre`.
 
-# Paso a Paso que debes entregar
-1) Diagrama de arquitectura.
-2) SQL del esquema + RLS + seeds.
-3) Código de Edge Functions (auth/import/avatar) + ejemplos de consumo desde el admin.
-4) Frontend completo (estructura de carpetas, componentes) con instrucciones de build/deploy en Netlify.
-5) Service Worker + IndexedDB (API de caché y sincronización).
-6) Guía de configuración (variables de entorno, claves, roles, URL de Supabase, buckets de Storage).
-7) Suite de pruebas + comandos (npm/pnpm).
-8) Lista de supuestos y mapeo por defecto del Excel; cómo ajustarlo si cambian encabezados/hojas.
+# Modelo de Datos (mínimo, normalizado y práctico)
 
-# Formato de Respuesta del Agente
-- Un **README** con plan y pasos.
-- **Bloques de código listos para pegar** (SQL, TS/JS, componentes).
-- Comandos exactos (npm/pnpm) y archivos listos (manifest.json, sw.js).
-- Variables de entorno para Netlify/Supabase documentadas.
-- Explicar cualquier ambigüedad detectada y proponer defaults seguros.
+# Reglas de Negocio (simples)
+- **Login Vendedor**: ingresa código → se autocompleta el nombre (solo lectura) → entra a su panel.  
+- **Supervisor**: ve el agregado de sus vendedores → solo lectura.  
+- **Admin**: inicia sesión con usuario/contraseña, sube Excel, valida, previsualiza y **reemplaza** por fecha (borra e inserta del día en una sola operación, si así lo decide).  
+- El **Excel de hoy** sobrescribe el dataset de hoy si así lo decide el administrador antes de importar (no mezcla días).  
+- Estados de categoría: mapear  
+  - “Activado” → `ACTIVADO`  
+  - “FALTA” → `FALTA`  
+  - “0” u otros vacíos → `0`
 
-# Notas de Implementación (específicas)
-- Regex sugerida para extraer código/nombre de `VendedorDisplay`: `^\\s*([A-Za-z0-9]+)\\s*-\\s*(.+)$` (manejar dobles espacios).
-- Nombre de hoja por defecto: `"CLIENTES SIN VENT MULTICATEGORI"`; permitir override en el wizard.
-- Política Storage avatar: path `profile-photos/{user_id}/avatar.webp`; firmar URL de lectura y caducar en 1h.
-- Estrategia de caché: assets (CacheFirst con versionado), datos (StaleWhileRevalidate con TTL configurable), avatars (CacheFirst + revalidación por ETag).
+# Seguridad esencial (sin complicar)
+- Login del vendedor: solo con su código; puede ver su nombre antes y después de iniciar sesión.  
+- Login del supervisor: solo con su código; puede ver su nombre antes y después de iniciar sesión.  
+- Login del administrador: utiliza dirección de correo y **contraseña**.
+
+# Frontend y UI (moderno y responsivo)
+- Stack: **React + Vite + Tailwind** (o HTML + Web Components si se pide minimal).  
+- Estilo: **elegante y limpio**, mobile-first, dark/light con toggle, tipografías suaves, tarjetas con sombras sutiles, **transiciones y micro-interacciones** (hover, focus, check animado para “Activado”).  
+- **Login**:  
+  - Input `código` → autocompletar `nombre` → botón **Entrar**.  
+  - Supervisor: selector de vendedor (todos / uno).  
+  - Admin: login con credenciales y acceso al panel de importación.
+- **Perfil** (opcional, simple): el usuario puede subir una foto (Storage público con paths por `user_id` y tamaño limitado); editable desde el front.
+
+# Importación de Excel
+- Desde el frontend, sube el CSV a Storage o envíalo al backend (no a la DB directamente).  
+- En el backend / Edge Function (con la `service_role` protegida): valida el CSV (columnas, tipos, tamaño).  
+- Inicia una transacción en la base de datos.  
+- Si se desea eliminar todo antes de insertar: `TRUNCATE` al inicio de la transacción (o realiza un respaldo previo).  
+- Inserta los datos en bloque desde el servidor (carga masiva tipo `COPY` o inserción desde JSON en bloque).  
+- Si el archivo es grande, procesa en **chunks** (p. ej., 500–2000 filas) para evitar timeouts; solo `TRUNCATE` una vez al inicio.  
+- Haz `COMMIT` cuando la carga termine correctamente; si falla, `ROLLBACK`.  
+- Registra el resultado en una tabla de **jobs** (inicio/fin/errores) y devuelve el estado al frontend.  
+- No expongas la `service_role` al cliente y mantén **backups** o **snapshots** si los datos son críticos.
+
+# PWA y Offline
+- Service Worker con **CacheFirst** para assets y **StaleWhileRevalidate** para datos.  
+- **IndexedDB** (Dexie) para cachear:  
+  - Último dataset por `vendedor_codigo`.  
+  - Lista de categorías y clientes.  
+- Si no hay red: mostrar **último snapshot** y un banner “Sin conexión”. Al volver, notificar “Actualizado {hora}”.
+
+# Despliegue (GitHub Pages)
+- Vite con `base: '/<repo>/'`.  
+- Build → publicar carpeta `dist/` en `gh-pages`.  
+- Variables públicas (URL de Supabase, `anon key`) como **secrets** del repo para el workflow de deploy si se desea automatizar.
+
+# Entregables que debe producir el Agente
+1) **Esquema SQL** con tablas/índices y **RLS** mínima (vendedor/supervisor/admin).  
+2) **Componente de importación** (React o vanilla): drag&drop, preview, normalización y reemplazo por fecha.  
+3) **Pantallas**:  
+   - Login (código → nombre → entrar; admin con credenciales).  
+   - Panel vendedor (filtros, tabla, chips/animaciones).  
+   - Panel supervisor (agregado por zona/ruta/vendedor).  
+   - Panel admin (subir Excel, validar, preview, aplicar).  
+4) **PWA**: `manifest.json`, `service-worker.js`, helpers de IndexedDB.  
+5) **Guía de despliegue** para GitHub Pages (paso a paso).  
+6) **Seeds** de ejemplo para `auth_users`, `categorias`, `clientes`.
+
+# Criterios de Aceptación (prácticos)
+- Login por **código** con autocompletado de nombre; cada vendedor **solo ve su data**.  
+- Importación diaria **reemplaza**, si así se decide, completamente los datos de la fecha elegida sin dejar estados parciales.  
+- Dashboard fluido, responsivo, con animaciones discretas y estados (cargando, vacío, error, sin conexión).  
+- Funciona **offline** con el último dataset.  
+- Publicado en **GitHub Pages** y conectado a Supabase con RLS activa.
+
+# Notas de Implementación
+- Validación ligera pero útil: no subir si faltan columnas base; mostrar resumen de filas afectadas; limitar tamaño de archivo (p. ej., 5 MB).  
+- Animaciones: usar Tailwind + `@keyframes` o Framer Motion (si React).

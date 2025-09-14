@@ -274,7 +274,7 @@ const LoginPage = () => {
                       value={formData.codigo}
                       onChange={handleInputChange}
                       className="input-field"
-                      placeholder={`Ej: ${loginType === 'vendedor' ? 'E56' : 'SUP001'}`}
+                      placeholder={activeProfile === 'supervisor' ? 'Email del supervisor' : 'Código del vendedor'}
                     />
                   </div>
 

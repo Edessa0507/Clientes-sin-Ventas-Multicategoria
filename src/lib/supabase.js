@@ -7,20 +7,24 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Funciones de autenticación
 export const auth = {
-  // Login con código para vendedores y supervisores
+  // Login con código para vendedores y email para supervisores
   async loginWithCode(codigo, tipo) {
     try {
       let table = tipo === 'supervisor' ? 'supervisores' : 'vendedores'
+      let query = supabase.from(table).select('id, codigo, nombre_completo, zona_id, supervisor_id, email').eq('activo', true)
       
-      const { data, error } = await supabase
-        .from(table)
-        .select('id, codigo, nombre_completo, zona_id, supervisor_id')
-        .eq('codigo', codigo)
-        .eq('activo', true)
-        .maybeSingle();
+      if (tipo === 'supervisor') {
+        // Para supervisores: buscar por email (case-insensitive)
+        query = query.or(`email.ilike.${codigo.toLowerCase()},codigo.ilike.${codigo.toUpperCase()}`)
+      } else {
+        // Para vendedores: buscar por código (case-insensitive)
+        query = query.ilike('codigo', codigo.toUpperCase())
+      }
+      
+      const { data, error } = await query.maybeSingle();
 
       if (error || !data) {
-        throw new Error('Código no válido o usuario inactivo')
+        throw new Error(tipo === 'supervisor' ? 'Email no válido o supervisor inactivo' : 'Código no válido o vendedor inactivo')
       }
 
       // Crear sesión personalizada
@@ -28,6 +32,7 @@ export const auth = {
         user: {
           id: data.id,
           codigo: data.codigo,
+          email: data.email,
           nombre: data.nombre_completo,
           tipo: tipo,
           zona_id: data.zona_id,
@@ -42,39 +47,31 @@ export const auth = {
     }
   },
 
-  // Login para administradores con email/password
+  // Login de administrador
   async loginAdmin(email, password) {
     try {
-      const { data, error } = await supabase.rpc('validate_admin_login', {
-        email_input: email,
-        password_input: password
-      });
+      const { data, error } = await supabase.rpc('admin_login', {
+        email_param: email.toLowerCase(), // Case-insensitive email
+        password_param: password // Case-sensitive password
+      })
 
-      if (error) {
-        console.error('Error RPC:', error);
-        throw new Error('Error al contactar el servidor de validación.');
+      if (error || !data) {
+        throw new Error('Credenciales inválidas')
       }
 
-      if (!data) {
-        throw new Error('Credenciales inválidas o usuario inactivo.');
-      }
-
-      // La función RPC devuelve el registro del administrador si es válido
       const session = {
         user: {
           id: data.id,
           email: data.email,
           nombre: data.nombre_completo,
-          tipo: 'admin',
+          tipo: 'admin'
         }
-      };
+      }
 
-      localStorage.setItem('session', JSON.stringify(session));
-      return { data: session, error: null };
-
+      localStorage.setItem('session', JSON.stringify(session))
+      return { data: session, error: null }
     } catch (error) {
-      console.error('Error en loginAdmin:', error.message);
-      return { data: null, error: error.message };
+      return { data: null, error: error.message }
     }
   },
 
@@ -90,17 +87,21 @@ export const auth = {
     await supabase.auth.signOut()
   },
 
-  // Autocompletar nombre por código
+  // Autocompletar nombre por código o email
   async getNameByCode(codigo, tipo) {
     try {
       let table = tipo === 'supervisor' ? 'supervisores' : 'vendedores'
+      let query = supabase.from(table).select('nombre_completo').eq('activo', true)
       
-      const { data, error } = await supabase
-        .from(table)
-        .select('nombre_completo')
-        .eq('codigo', codigo)
-        .eq('activo', true)
-        .maybeSingle();
+      if (tipo === 'supervisor') {
+        // Para supervisores: buscar por email o código (case-insensitive)
+        query = query.or(`email.ilike.${codigo.toLowerCase()},codigo.ilike.${codigo.toUpperCase()}`)
+      } else {
+        // Para vendedores: buscar por código (case-insensitive)
+        query = query.ilike('codigo', codigo.toUpperCase())
+      }
+      
+      const { data, error } = await query.maybeSingle();
 
       if (error || !data) return null
       return data.nombre_completo

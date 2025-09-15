@@ -209,44 +209,71 @@ export const supervisorService = {
   }
 }
 
-// Funciones para administradores
+// Funciones para administradores - SIMPLIFICADAS
 export const adminService = {
   async getDashboardStats() {
     try {
+      console.log('Cargando estadísticas del dashboard admin...')
+      
       // Total supervisores desde asignaciones
-      const { data: supervisores } = await supabase
+      const { data: supervisores, error: errorSup } = await supabase
         .from('asignaciones')
         .select('supervisor_codigo')
         .not('supervisor_codigo', 'is', null)
       
-      const totalSupervisores = new Set(supervisores?.map(s => s.supervisor_codigo) || []).size
-
+      if (errorSup) {
+        console.error('Error cargando supervisores:', errorSup)
+        throw errorSup
+      }
+      
+      const uniqueSupervisores = new Set(supervisores?.map(s => s.supervisor_codigo) || [])
+      
       // Total clientes desde asignaciones
-      const { data: clientes } = await supabase
+      const { data: clientes, error: errorCli } = await supabase
         .from('asignaciones')
         .select('cliente_codigo')
         .not('cliente_codigo', 'is', null)
       
-      const totalClientes = new Set(clientes?.map(c => c.cliente_codigo) || []).size
-
-      // Última importación
+      if (errorCli) {
+        console.error('Error cargando clientes:', errorCli)
+        throw errorCli
+      }
+      
+      const uniqueClientes = new Set(clientes?.map(c => c.cliente_codigo) || [])
+      
+      // Total vendedores desde asignaciones
+      const { data: vendedores, error: errorVen } = await supabase
+        .from('asignaciones')
+        .select('vendedor_codigo')
+        .not('vendedor_codigo', 'is', null)
+      
+      if (errorVen) {
+        console.error('Error cargando vendedores:', errorVen)
+        throw errorVen
+      }
+      
+      const uniqueVendedores = new Set(vendedores?.map(v => v.vendedor_codigo) || [])
+      
+      // Última importación (aproximada por fecha más reciente)
       const { data: ultimaImportacion } = await supabase
-        .from('importaciones')
-        .select('*')
+        .from('asignaciones')
+        .select('fecha, created_at')
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle()
-
-      return {
-        data: {
-          totalSupervisores,
-          totalClientes,
-          ultimaImportacion
-        },
-        error: null
+      
+      const stats = {
+        totalSupervisores: uniqueSupervisores.size,
+        totalVendedores: uniqueVendedores.size,
+        totalClientes: uniqueClientes.size,
+        ultimaImportacion: ultimaImportacion?.[0] || null
       }
+      
+      console.log('Estadísticas cargadas:', stats)
+      
+      return { data: stats, error: null }
     } catch (error) {
-      return { data: null, error: error.message }
+      console.error('Error getting dashboard stats:', error)
+      return { data: null, error }
     }
   },
 

@@ -54,28 +54,28 @@ const DashboardSection = () => {
         })
       }
       
-      // Cargar indicadores reales
-      const dashboardResult = await dashboardService.getDashboardData(session)
+      // Cargar datos reales directamente desde Supabase
+      const dashboardResult = await adminService.getDashboardStats()
       if (dashboardResult.data) {
         setDashboardData(dashboardResult.data)
         
-        // Convertir datos para gráficos
-        const coberturaData = Object.entries(dashboardResult.data.cobertura.clientesPorSupervisor || {}).map(([codigo, data]) => ({
-          supervisor: data.nombre.substring(0, 20),
-          clientes: data.total,
-          codigo
-        }))
-        setChartData(coberturaData)
+        // Datos de ejemplo para gráficos (reemplazar con datos reales)
+        const chartDataExample = [
+          { zona: 'Norte', activacion: 85 },
+          { zona: 'Sur', activacion: 72 },
+          { zona: 'Este', activacion: 68 },
+          { zona: 'Oeste', activacion: 91 }
+        ]
+        setChartData(chartDataExample)
 
-        // Datos para gráfico de pie - activación por categoría
-        const activacionData = Object.entries(dashboardResult.data.activacionCategoria || {}).map(([categoria, data]) => ({
-          name: categoria.replace('_', ' '),
-          value: data.porcentaje,
-          color: categoria === 'ENSURE' ? '#3b82f6' : 
-                 categoria === 'CHOCOLATE' ? '#10b981' : 
-                 categoria === 'ALPINA' ? '#f59e0b' : '#ef4444'
-        }))
-        setPieData(activacionData)
+        // Datos para gráfico de pie
+        const pieDataExample = [
+          { name: 'ENSURE', value: 25, color: '#3b82f6' },
+          { name: 'CHOCOLATE', value: 30, color: '#10b981' },
+          { name: 'ALPINA', value: 20, color: '#f59e0b' },
+          { name: 'SUPER DE ALIM', value: 25, color: '#ef4444' }
+        ]
+        setPieData(pieDataExample)
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error)
@@ -139,36 +139,30 @@ const DashboardSection = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Supervisores"
-          value={stats.totalSupervisores}
+          value={stats.totalSupervisores || 0}
           icon={UserCheck}
           color="primary"
-          change="+2 este mes"
-          changeType="positive"
+        />
+        <StatCard
+          title="Total Vendedores"
+          value={stats.totalVendedores || 0}
+          icon={Users}
+          color="success"
         />
         <StatCard
           title="Total Clientes"
-          value={stats.totalClientes.toLocaleString()}
+          value={(stats.totalClientes || 0).toLocaleString()}
           icon={Users}
-          color="success"
-          change="+156 esta semana"
-          changeType="positive"
+          color="warning"
         />
         <StatCard
           title="Última Importación"
           value={stats.ultimaImportacion ? 
-            new Date(stats.ultimaImportacion.created_at).toLocaleDateString() : 
+            new Date(stats.ultimaImportacion.created_at || stats.ultimaImportacion.fecha).toLocaleDateString() : 
             'Sin datos'
           }
           icon={Calendar}
-          color="warning"
-        />
-        <StatCard
-          title="Rendimiento Global"
-          value="74%"
-          icon={Target}
           color="primary"
-          change="+5% vs mes anterior"
-          changeType="positive"
         />
       </div>
 

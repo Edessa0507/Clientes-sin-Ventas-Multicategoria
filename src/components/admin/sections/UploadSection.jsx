@@ -218,9 +218,9 @@ const UploadSection = () => {
         
         const result = await adminService.importExcelData(
           batch,
-          replaceMode && i === 0, // Solo reemplazar en el primer lote
-          fechaInicio,
-          fechaFin
+          importMode === 'reemplazo' && i === 0, // Solo reemplazar en el primer lote
+          dateRange.fechaInicio,
+          dateRange.fechaFin
         )
         
         if (result.error) {

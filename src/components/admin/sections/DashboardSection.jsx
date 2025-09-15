@@ -38,10 +38,20 @@ const DashboardSection = () => {
     try {
       const session = auth.getSession()
       
-      // Cargar estadísticas básicas
-      const statsResult = await adminService.getDashboardStats()
-      if (statsResult.data) {
-        setStats(statsResult.data)
+      // Cargar estadísticas básicas desde Supabase
+      try {
+        const statsResult = await adminService.getDashboardStats()
+        if (statsResult.data) {
+          setStats(statsResult.data)
+        }
+      } catch (error) {
+        console.error('Error loading stats:', error)
+        // Usar datos por defecto si falla
+        setStats({
+          totalSupervisores: 0,
+          totalClientes: 0,
+          ultimaImportacion: null
+        })
       }
       
       // Cargar indicadores reales

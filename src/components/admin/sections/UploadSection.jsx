@@ -203,22 +203,44 @@ const UploadSection = () => {
         })
       })
 
-      const result = await adminService.importExcelData(
-        importData,
-        importMode === 'reemplazo',
-        dateRange.fechaInicio || null,
-        dateRange.fechaFin || null
-      )
-
-      if (result.error) {
-        toast.error(result.error)
-      } else {
-        toast.success(`Importación completada: ${importData.length} registros procesados`)
-        // Limpiar formulario
-        setFile(null)
-        setPreviewData(null)
-        setDateRange({ fechaInicio: '', fechaFin: '' })
+      // Procesar en lotes para evitar timeout
+      const batchSize = 100
+      const batches = []
+      
+      for (let i = 0; i < importData.length; i += batchSize) {
+        batches.push(importData.slice(i, i + batchSize))
       }
+      
+      let totalProcessed = 0
+      
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i]
+        
+        const result = await adminService.importExcelData(
+          batch,
+          replaceMode && i === 0, // Solo reemplazar en el primer lote
+          fechaInicio,
+          fechaFin
+        )
+        
+        if (result.error) {
+          throw new Error(result.error)
+        }
+        
+        totalProcessed += batch.length
+        
+        // Actualizar progreso
+        toast.success(`Procesados ${totalProcessed} de ${importData.length} registros`)
+        
+        // Pausa pequeña entre lotes
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+
+      toast.success(`Importación completada: ${importData.length} registros procesados`)
+      // Limpiar formulario
+      setFile(null)
+      setPreviewData(null)
+      setDateRange({ fechaInicio: '', fechaFin: '' })
     } catch (error) {
       console.error('Error importing data:', error)
       toast.error('Error al importar los datos')

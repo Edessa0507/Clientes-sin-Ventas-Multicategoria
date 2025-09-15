@@ -113,18 +113,13 @@ export const auth = {
 
 // Funciones para vendedores
 export const vendedorService = {
-  async getClientesByVendedor(vendedorId) {
+  async getClientesByVendedor(vendedorCodigo) {
     try {
+      // Obtener asignaciones por código de vendedor (desnormalizado)
       const { data, error } = await supabase
         .from('asignaciones')
-        .select(`
-          *,
-          clientes (
-            codigo,
-            nombre
-          )
-        `)
-        .eq('vendedor_id', vendedorId)
+        .select('*')
+        .eq('vendedor_codigo', vendedorCodigo)
 
       if (error) throw error
       return { data, error: null }
@@ -136,49 +131,40 @@ export const vendedorService = {
 
 // Funciones para supervisores
 export const supervisorService = {
-  async getVendedoresBySupervisor(supervisorId) {
+  async getVendedoresBySupervisor(supervisorCodigo) {
     try {
+      // Obtener vendedores únicos por supervisor (desnormalizado)
       const { data, error } = await supabase
-        .from('vendedores')
-        .select('*')
-        .eq('supervisor_id', supervisorId)
-        .eq('activo', true)
+        .from('asignaciones')
+        .select('vendedor_codigo, vendedor_nombre')
+        .eq('supervisor_codigo', supervisorCodigo)
+        .not('vendedor_codigo', 'is', null)
 
       if (error) throw error
-      return { data, error: null }
+      
+      // Eliminar duplicados
+      const vendedoresUnicos = data.reduce((acc, curr) => {
+        if (!acc.find(v => v.vendedor_codigo === curr.vendedor_codigo)) {
+          acc.push(curr)
+        }
+        return acc
+      }, [])
+      
+      return { data: vendedoresUnicos, error: null }
     } catch (error) {
       return { data: null, error: error.message }
     }
   },
 
-  async getAsignacionesBySupervisor(supervisorId, vendedorIds = null) {
+  async getAsignacionesBySupervisor(supervisorCodigo, vendedorCodigos = null) {
     try {
       let query = supabase
         .from('asignaciones')
-        .select(`
-          *,
-          vendedores (
-            codigo,
-            nombre_completo
-          ),
-          clientes (
-            codigo,
-            nombre
-          )
-        `)
+        .select('*')
+        .eq('supervisor_codigo', supervisorCodigo)
 
-      if (vendedorIds && vendedorIds.length > 0) {
-        query = query.in('vendedor_id', vendedorIds)
-      } else {
-        // Obtener todos los vendedores del supervisor
-        const { data: vendedores } = await supabase
-          .from('vendedores')
-          .select('id')
-          .eq('supervisor_id', supervisorId)
-
-        if (vendedores && vendedores.length > 0) {
-          query = query.in('vendedor_id', vendedores.map(v => v.id))
-        }
+      if (vendedorCodigos && vendedorCodigos.length > 0) {
+        query = query.in('vendedor_codigo', vendedorCodigos)
       }
 
       const { data, error } = await query
@@ -195,17 +181,21 @@ export const supervisorService = {
 export const adminService = {
   async getDashboardStats() {
     try {
-      // Total supervisores
-      const { count: totalSupervisores } = await supabase
-        .from('supervisores')
-        .select('*', { count: 'exact', head: true })
-        .eq('activo', true)
+      // Total supervisores desde asignaciones
+      const { data: supervisores } = await supabase
+        .from('asignaciones')
+        .select('supervisor_codigo')
+        .not('supervisor_codigo', 'is', null)
+      
+      const totalSupervisores = new Set(supervisores?.map(s => s.supervisor_codigo) || []).size
 
-      // Total clientes
-      const { count: totalClientes } = await supabase
-        .from('clientes')
-        .select('*', { count: 'exact', head: true })
-        .eq('activo', true)
+      // Total clientes desde asignaciones
+      const { data: clientes } = await supabase
+        .from('asignaciones')
+        .select('cliente_codigo')
+        .not('cliente_codigo', 'is', null)
+      
+      const totalClientes = new Set(clientes?.map(c => c.cliente_codigo) || []).size
 
       // Última importación
       const { data: ultimaImportacion } = await supabase
@@ -213,7 +203,7 @@ export const adminService = {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
       return {
         data: {

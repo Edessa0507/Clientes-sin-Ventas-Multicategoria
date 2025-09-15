@@ -122,7 +122,9 @@ export const vendedorService = {
           cliente_nombre,
           categoria_codigo,
           categoria_nombre,
-          estado
+          estado,
+          ruta_codigo,
+          ruta_nombre
         `)
         .eq('vendedor_codigo', vendedorCodigo)
       
@@ -149,7 +151,7 @@ export const supervisorService = {
       // Obtener vendedores únicos por supervisor (desnormalizado)
       const { data, error } = await supabase
         .from('asignaciones')
-        .select('vendedor_codigo, vendedor_nombre')
+        .select('vendedor_codigo, vendedor_nombre, ruta_codigo, ruta_nombre')
         .eq('supervisor_codigo', supervisorCodigo)
       
       if (error) {
@@ -191,7 +193,9 @@ export const supervisorService = {
           cliente_nombre,
           categoria_codigo,
           categoria_nombre,
-          estado
+          estado,
+          ruta_codigo,
+          ruta_nombre
         `)
         .eq('supervisor_codigo', supervisorCodigo)
       

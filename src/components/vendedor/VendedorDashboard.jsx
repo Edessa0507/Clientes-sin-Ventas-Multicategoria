@@ -153,7 +153,7 @@ const VendedorDashboard = () => {
     })
     setRutasDisponibles(rutasArray)
 
-    const clientesAgrupados = Object.values(clientesMap)
+    const clientesAgrupados = Array.from(clientesMap.values())
 
     return {
       clientesAgrupados

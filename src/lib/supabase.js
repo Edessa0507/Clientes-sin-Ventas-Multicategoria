@@ -140,50 +140,71 @@ export const vendedorService = {
   }
 }
 
-// Funciones para supervisores
+// Funciones para supervisores - SIMPLIFICADAS
 export const supervisorService = {
   async getVendedoresBySupervisor(supervisorCodigo) {
     try {
+      console.log('Buscando vendedores para supervisor:', supervisorCodigo)
+      
       // Obtener vendedores únicos por supervisor (desnormalizado)
       const { data, error } = await supabase
         .from('asignaciones')
         .select('vendedor_codigo, vendedor_nombre')
         .eq('supervisor_codigo', supervisorCodigo)
-        .not('vendedor_codigo', 'is', null)
-
-      if (error) throw error
       
-      // Eliminar duplicados
-      const vendedoresUnicos = data.reduce((acc, curr) => {
-        if (!acc.find(v => v.vendedor_codigo === curr.vendedor_codigo)) {
-          acc.push(curr)
+      if (error) {
+        console.error('Error en consulta vendedores:', error)
+        throw error
+      }
+      
+      // Eliminar duplicados y formatear
+      const vendedoresUnicos = data.reduce((acc, item) => {
+        const key = item.vendedor_codigo
+        if (!acc[key]) {
+          acc[key] = {
+            codigo: item.vendedor_codigo,
+            nombre_completo: item.vendedor_nombre
+          }
         }
         return acc
-      }, [])
+      }, {})
       
-      return { data: vendedoresUnicos, error: null }
+      const vendedores = Object.values(vendedoresUnicos)
+      console.log('Vendedores encontrados:', vendedores.length)
+      return { data: vendedores, error: null }
     } catch (error) {
-      return { data: null, error: error.message }
+      console.error('Error getting vendedores by supervisor:', error)
+      return { data: [], error }
     }
   },
 
-  async getAsignacionesBySupervisor(supervisorCodigo, vendedorCodigos = null) {
+  async getAsignacionesBySupervisor(supervisorCodigo) {
     try {
-      let query = supabase
+      console.log('Buscando asignaciones para supervisor:', supervisorCodigo)
+      
+      const { data, error } = await supabase
         .from('asignaciones')
-        .select('*')
+        .select(`
+          vendedor_codigo,
+          vendedor_nombre,
+          cliente_codigo,
+          cliente_nombre,
+          categoria_codigo,
+          categoria_nombre,
+          estado
+        `)
         .eq('supervisor_codigo', supervisorCodigo)
-
-      if (vendedorCodigos && vendedorCodigos.length > 0) {
-        query = query.in('vendedor_codigo', vendedorCodigos)
+      
+      if (error) {
+        console.error('Error en consulta asignaciones:', error)
+        throw error
       }
-
-      const { data, error } = await query
-
-      if (error) throw error
-      return { data, error: null }
+      
+      console.log('Asignaciones encontradas:', data?.length || 0)
+      return { data: data || [], error: null }
     } catch (error) {
-      return { data: null, error: error.message }
+      console.error('Error getting asignaciones by supervisor:', error)
+      return { data: [], error }
     }
   }
 }

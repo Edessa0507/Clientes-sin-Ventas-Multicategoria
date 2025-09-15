@@ -19,7 +19,6 @@ import {
 import toast from 'react-hot-toast'
 import { useUser } from '../../context/UserContext'
 import { vendedorService } from '../../lib/supabase'
-import { offlineCache, dataUtils } from '../../lib/database'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
 const VendedorDashboard = () => {
@@ -86,30 +85,23 @@ const VendedorDashboard = () => {
         const result = await vendedorService.getClientesByVendedor(user.codigo)
         if (result.data) {
           data = result.data
-          // Guardar en cache offline
-          await offlineCache.saveVendedorData(user.codigo, data)
+          // Cache offline simplificado (opcional)
+          // await offlineCache.saveVendedorData(user.codigo, data)
           setLastUpdate(new Date())
         } else {
           throw new Error('No se pudieron cargar los datos')
         }
       } else {
-        // Cargar desde cache offline
-        data = await offlineCache.getVendedorData(user.codigo)
-        fromCache = true
-        if (!data || data.length === 0) {
-          toast.error('No hay datos disponibles sin conexión')
-          return
-        }
+        // Sin conexión - mostrar mensaje
+        toast.error('Sin conexión a internet')
+        setLoading(false)
+        return
       }
 
       // Procesar datos de asignaciones
       const processedData = processVendedorData(data)
       setClientesData(processedData.clientesAgrupados)
       calculateStats(processedData.clientesAgrupados)
-      
-      if (fromCache) {
-        toast('Mostrando datos guardados', { icon: '📱' })
-      }
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error('Error al cargar los datos')

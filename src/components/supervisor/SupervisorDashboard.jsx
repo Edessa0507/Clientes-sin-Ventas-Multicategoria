@@ -17,7 +17,6 @@ import {
 import toast from 'react-hot-toast'
 import { useUser } from '../../context/UserContext'
 import { supervisorService } from '../../lib/supabase'
-import { offlineCache } from '../../lib/database'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
 const SupervisorDashboard = () => {
@@ -64,57 +63,31 @@ const SupervisorDashboard = () => {
   }, [user])
 
   const loadData = async () => {
-    if (!user?.id) return
+    if (!user?.codigo) return
 
     setLoading(true)
     try {
-      let vendedoresData = []
-      let asignacionesData = []
-      let fromCache = false
-
-      if (isOnline) {
-        // Cargar vendedores
-        const vendedoresResult = await supervisorService.getVendedoresBySupervisor(user.id)
-        if (vendedoresResult.data) {
-          vendedoresData = vendedoresResult.data
-        }
-
-        // Cargar asignaciones
-        const asignacionesResult = await supervisorService.getAsignacionesBySupervisor(user.id)
-        if (asignacionesResult.data) {
-          asignacionesData = asignacionesResult.data
-        }
-
-        // Guardar en cache
-        if (vendedoresData.length > 0 || asignacionesData.length > 0) {
-          await offlineCache.cacheSupervisorData(user.id, {
-            vendedores: vendedoresData,
-            asignaciones: asignacionesData
-          })
-          setLastUpdate(new Date())
-        }
+      if (!isOnline) {
+        toast.error('Sin conexión a internet')
+        setLoading(false)
+        return
       }
 
-      // Si no hay datos online, usar cache
-      if (vendedoresData.length === 0 && asignacionesData.length === 0) {
-        const cachedData = await offlineCache.getCachedSupervisorData(user.id)
-        if (cachedData) {
-          vendedoresData = cachedData.vendedores || []
-          asignacionesData = cachedData.asignaciones || []
-          fromCache = true
-          setLastUpdate(new Date(cachedData.timestamp))
-        }
-      }
+      // Cargar vendedores por supervisor usando código
+      const vendedoresResult = await supervisorService.getVendedoresBySupervisor(user.codigo)
+      const vendedoresData = vendedoresResult.data || []
+
+      // Cargar asignaciones por supervisor usando código
+      const asignacionesResult = await supervisorService.getAsignacionesBySupervisor(user.codigo)
+      const asignacionesData = asignacionesResult.data || []
 
       setVendedores(vendedoresData)
-      setSelectedVendedores(vendedoresData.map(v => v.id))
+      setSelectedVendedores(vendedoresData.map(v => v.codigo))
       
       // Calcular estadísticas
       calculateStats(vendedoresData, asignacionesData)
-      
-      if (fromCache) {
-        toast('Mostrando datos guardados', { icon: '📱' })
-      }
+      setLastUpdate(new Date())
+
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error('Error al cargar los datos')
@@ -126,24 +99,24 @@ const SupervisorDashboard = () => {
   const calculateStats = (vendedoresData, asignacionesData) => {
     const totalVendedores = vendedoresData.length
     
-    // Agrupar asignaciones por vendedor
+    // Agrupar asignaciones por vendedor usando código
     const vendedorAsignaciones = {}
     asignacionesData.forEach(asignacion => {
-      if (!vendedorAsignaciones[asignacion.vendedor_id]) {
-        vendedorAsignaciones[asignacion.vendedor_id] = []
+      if (!vendedorAsignaciones[asignacion.vendedor_codigo]) {
+        vendedorAsignaciones[asignacion.vendedor_codigo] = []
       }
-      vendedorAsignaciones[asignacion.vendedor_id].push(asignacion)
+      vendedorAsignaciones[asignacion.vendedor_codigo].push(asignacion)
     })
 
     // Calcular stats por vendedor
     const vendedorStatsData = vendedoresData.map(vendedor => {
-      const asignaciones = vendedorAsignaciones[vendedor.id] || []
-      const clientesUnicos = new Set(asignaciones.map(a => a.cliente_id))
+      const asignaciones = vendedorAsignaciones[vendedor.codigo] || []
+      const clientesUnicos = new Set(asignaciones.map(a => a.cliente_codigo))
       const totalClientes = clientesUnicos.size
       
       // Calcular clientes totalmente activados
-      const clientesActivados = Array.from(clientesUnicos).filter(clienteId => {
-        const clienteAsignaciones = asignaciones.filter(a => a.cliente_id === clienteId)
+      const clientesActivados = Array.from(clientesUnicos).filter(clienteCodigo => {
+        const clienteAsignaciones = asignaciones.filter(a => a.cliente_codigo === clienteCodigo)
         return clienteAsignaciones.length === 4 && 
                clienteAsignaciones.every(a => a.estado === 'Activado')
       }).length
@@ -175,18 +148,18 @@ const SupervisorDashboard = () => {
     })
   }
 
-  const handleVendedorToggle = (vendedorId) => {
+  const handleVendedorToggle = (vendedorCodigo) => {
     setSelectedVendedores(prev => {
-      if (prev.includes(vendedorId)) {
-        return prev.filter(id => id !== vendedorId)
+      if (prev.includes(vendedorCodigo)) {
+        return prev.filter(codigo => codigo !== vendedorCodigo)
       } else {
-        return [...prev, vendedorId]
+        return [...prev, vendedorCodigo]
       }
     })
   }
 
   const selectAllVendedores = () => {
-    setSelectedVendedores(vendedores.map(v => v.id))
+    setSelectedVendedores(vendedores.map(v => v.codigo))
   }
 
   const clearSelection = () => {
@@ -194,7 +167,7 @@ const SupervisorDashboard = () => {
   }
 
   const filteredVendedorStats = vendedorStats.filter(stat => 
-    selectedVendedores.includes(stat.vendedor.id)
+    selectedVendedores.includes(stat.vendedor.codigo)
   )
 
   if (loading) {
@@ -373,13 +346,13 @@ const SupervisorDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {vendedores.map(vendedor => (
               <label
-                key={vendedor.id}
+                key={vendedor.codigo}
                 className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
               >
                 <input
                   type="checkbox"
-                  checked={selectedVendedores.includes(vendedor.id)}
-                  onChange={() => handleVendedorToggle(vendedor.id)}
+                  checked={selectedVendedores.includes(vendedor.codigo)}
+                  onChange={() => handleVendedorToggle(vendedor.codigo)}
                   className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                 />
                 <div className="flex-1">
@@ -437,7 +410,7 @@ const SupervisorDashboard = () => {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredVendedorStats.map((stat, index) => (
                   <motion.tr
-                    key={stat.vendedor.id}
+                    key={stat.vendedor.codigo}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}

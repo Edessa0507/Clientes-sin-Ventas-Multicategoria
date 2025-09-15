@@ -325,33 +325,8 @@ export const adminService = {
           fecha_fin: fechaFin
         })
 
-      // Cargar datos reales directamente desde Supabase
-      const dashboardResult = await adminService.getDashboardStats()
-      if (dashboardResult.data) {
-        const dashboardWithRecentData = {
-          ...dashboardResult.data,
-          recentData: dashboardResult.data.recentData || []
-        }
-        setDashboardData(dashboardWithRecentData)
-        
-        // Datos de ejemplo para gráficos (reemplazar con datos reales)
-        const chartDataExample = [
-          { zona: 'Norte', activacion: 85 },
-          { zona: 'Sur', activacion: 72 },
-          { zona: 'Este', activacion: 68 },
-          { zona: 'Oeste', activacion: 91 }
-        ]
-        setChartData(chartDataExample)
-
-        // Datos para gráfico de pie
-        const pieDataExample = [
-          { name: 'ENSURE', value: 25, color: '#3b82f6' },
-          { name: 'CHOCOLATE', value: 30, color: '#10b981' },
-          { name: 'ALPINA', value: 20, color: '#f59e0b' },
-          { name: 'SUPER DE ALIM', value: 25, color: '#ef4444' }
-        ]
-        setPieData(pieDataExample)
-      } 
+      // Esta función no debe manejar estado de dashboard directamente
+      // El estado debe ser manejado por el componente que llama a esta función 
 
       return { data: result, error: null }
     } catch (error) {

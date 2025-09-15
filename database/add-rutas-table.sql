@@ -31,19 +31,33 @@ CREATE INDEX IF NOT EXISTS idx_rutas_activa ON rutas(activa);
 -- Habilitar RLS para rutas
 ALTER TABLE rutas ENABLE ROW LEVEL SECURITY;
 
--- Política para permitir lectura a usuarios autenticados
-CREATE POLICY "Allow read access to rutas" ON rutas
-  FOR SELECT USING (true);
+-- Política para permitir lectura a usuarios autenticados (solo si no existe)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'rutas' AND policyname = 'Allow read access to rutas'
+  ) THEN
+    EXECUTE 'CREATE POLICY "Allow read access to rutas" ON rutas FOR SELECT USING (true)';
+  END IF;
+END $$;
 
--- Política para permitir escritura solo a admins
-CREATE POLICY "Allow admin write access to rutas" ON rutas
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM auth.users 
-      WHERE auth.users.id = auth.uid() 
-      AND auth.users.email = 'gustavo.reyes@edessa.do'
-    )
-  );
+-- Política para permitir escritura solo a admins (solo si no existe)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'rutas' AND policyname = 'Allow admin write access to rutas'
+  ) THEN
+    EXECUTE 'CREATE POLICY "Allow admin write access to rutas" ON rutas FOR ALL USING (
+      EXISTS (
+        SELECT 1 FROM auth.users 
+        WHERE auth.users.id = auth.uid() 
+        AND auth.users.email = ''gustavo.reyes@edessa.do''
+      )
+    )';
+  END IF;
+END $$;
 
 COMMENT ON TABLE rutas IS 'Tabla de rutas para organizar clientes por zona geográfica';
 COMMENT ON COLUMN rutas.codigo IS 'Código único de la ruta';

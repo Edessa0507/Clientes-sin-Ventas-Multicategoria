@@ -233,52 +233,63 @@ const DashboardSection = () => {
 
       {/* Top vendedores y resumen */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Top vendedores */}
+        {/* Datos cargados - limitados a 15 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card lg:col-span-2"
+          className="card"
         >
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Top Vendedores
+              Datos Cargados (Últimos 15)
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Mejores rendimientos del mes
+              Vista previa de los datos en el sistema
             </p>
           </div>
-          <div className="space-y-4">
-            {[
-              { name: 'Pedro José Burgos', codigo: 'E56', activacion: 92, clientes: 45 },
-              { name: 'Luis Manuel de la Cruz', codigo: 'E02', activacion: 88, clientes: 38 },
-              { name: 'Yeuri Antonio Pardo', codigo: 'E81', activacion: 85, clientes: 42 }
-            ].map((vendedor, index) => (
-              <div key={vendedor.codigo} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                    index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-orange-500'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {vendedor.name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {vendedor.codigo} • {vendedor.clientes} clientes
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-success-600">
-                    {vendedor.activacion}%
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Activación
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Cliente
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Vendedor
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Ruta
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Categoría
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {dashboardData.recentData?.slice(0, 15).map((item, index) => (
+                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">
+                      {item.cliente_nombre}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      {item.vendedor_nombre}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      {item.ruta_nombre || 'Sin ruta'}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      {item.categoria_nombre}
+                    </td>
+                  </tr>
+                )) || (
+                  <tr>
+                    <td colSpan="4" className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                      No hay datos disponibles
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </motion.div>
 

@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
-  User, 
-  LogOut, 
+  Users, 
+  CheckCircle, 
+  AlertCircle, 
+  XCircle, 
+  TrendingUp, 
   Search, 
   Filter, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle,
-  BarChart3,
-  Users,
-  Package,
-  TrendingUp,
-  Wifi,
-  WifiOff,
-  RefreshCw
+  RefreshCw, 
+  Wifi, 
+  WifiOff, 
+  User, 
+  LogOut, 
+  Sun, 
+  Moon 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useUser } from '../../context/UserContext'
@@ -40,7 +40,9 @@ const VendedorDashboard = () => {
   // Estados de filtros
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('todos') // todos, activado, falta, cero
-  const [filterCategory, setFilterCategory] = useState('todas') // todas, ensure, chocolate, alpina, super_de_alim
+  const [filterCategory, setFilterCategory] = useState('todas')
+  const [filterRuta, setFilterRuta] = useState('todas')
+  const [rutasDisponibles, setRutasDisponibles] = useState([]) // todas, ensure, chocolate, alpina, super_de_alim
 
   // Detectar estado de conexión
   useEffect(() => {
@@ -69,10 +71,10 @@ const VendedorDashboard = () => {
     loadClientesData()
   }, [user])
 
-  // Filtrar datos cuando cambien los filtros
+  // Aplicar filtros cuando cambien los estados
   useEffect(() => {
-    filterData()
-  }, [clientesData, searchTerm, filterStatus, filterCategory])
+    applyFilters()
+  }, [data, searchTerm, filterStatus, filterCategory, filterRuta])
 
   const loadClientesData = async () => {
     setLoading(true)
@@ -116,26 +118,40 @@ const VendedorDashboard = () => {
       return { clientesAgrupados: [] }
     }
 
-    // Agrupar por cliente
-    const clientesMap = {}
+    // Procesar datos para agrupar por cliente
+    const clientesMap = new Map()
+    const rutasSet = new Set()
     
     asignaciones.forEach(asignacion => {
-      const clienteKey = asignacion.cliente_codigo
-      
-      if (!clientesMap[clienteKey]) {
-        clientesMap[clienteKey] = {
-          codigo: asignacion.cliente_codigo,
-          nombre: asignacion.cliente_nombre,
+      const clienteId = asignacion.cliente_codigo
+      if (!clientesMap.has(clienteId)) {
+        clientesMap.set(clienteId, {
+          cliente_id: clienteId,
+          cliente_nombre: asignacion.cliente_nombre,
+          ruta_codigo: asignacion.ruta_codigo,
+          ruta_nombre: asignacion.ruta_nombre,
           categorias: {}
-        }
+        })
       }
       
-      // Agregar categoría
-      clientesMap[clienteKey].categorias[asignacion.categoria_codigo] = {
+      const cliente = clientesMap.get(clienteId)
+      cliente.categorias[asignacion.categoria_codigo] = {
         estado: asignacion.estado || 0,
         nombre: asignacion.categoria_nombre
       }
+      
+      // Recopilar rutas disponibles
+      if (asignacion.ruta_codigo && asignacion.ruta_nombre) {
+        rutasSet.add(`${asignacion.ruta_codigo}|${asignacion.ruta_nombre}`)
+      }
     })
+    
+    // Actualizar rutas disponibles
+    const rutasArray = Array.from(rutasSet).map(ruta => {
+      const [codigo, nombre] = ruta.split('|')
+      return { codigo, nombre }
+    })
+    setRutasDisponibles(rutasArray)
 
     const clientesAgrupados = Object.values(clientesMap)
 
@@ -196,6 +212,13 @@ const VendedorDashboard = () => {
       filtered = filtered.filter(cliente => {
         const categoria = cliente.categorias[filterCategory.toUpperCase()]
         return categoria && categoria.estado === 'Activado'
+      })
+    }
+
+    // Filtro por ruta
+    if (filterRuta !== 'todas') {
+      filtered = filtered.filter(cliente => {
+        return cliente.ruta_codigo === filterRuta
       })
     }
 
@@ -278,6 +301,25 @@ const VendedorDashboard = () => {
                 </span>
               </div>
 
+              {/* Botón modo oscuro/claro */}
+              <button
+                onClick={() => {
+                  const isDark = document.documentElement.classList.contains('dark')
+                  if (isDark) {
+                    document.documentElement.classList.remove('dark')
+                    localStorage.setItem('theme', 'light')
+                  } else {
+                    document.documentElement.classList.add('dark')
+                    localStorage.setItem('theme', 'dark')
+                  }
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Cambiar tema"
+              >
+                <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400 dark:hidden" />
+                <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400 hidden dark:block" />
+              </button>
+
               {/* Botón de actualizar */}
               <button
                 onClick={loadClientesData}
@@ -287,7 +329,7 @@ const VendedorDashboard = () => {
                 <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
               </button>
 
-              {/* Botón de logout */}
+              {/* Botón de cerrar sesión */}
               <button
                 onClick={logout}
                 className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
@@ -438,6 +480,22 @@ const VendedorDashboard = () => {
                 <option value="super_de_alim">Solo Super de Alim.</option>
               </select>
             </div>
+
+            {/* Filtro por ruta */}
+            <div className="sm:w-48">
+              <select
+                value={filterRuta}
+                onChange={(e) => setFilterRuta(e.target.value)}
+                className="input-field"
+              >
+                <option value="todas">Todas las rutas</option>
+                {rutasDisponibles.map(ruta => (
+                  <option key={ruta.codigo} value={ruta.codigo}>
+                    {ruta.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </motion.div>
 
@@ -465,6 +523,9 @@ const VendedorDashboard = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Cliente
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Ruta
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Ensure
@@ -501,11 +562,19 @@ const VendedorDashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {cliente.nombre}
+                            {cliente.cliente_nombre}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {cliente.codigo}
+                            {cliente.cliente_id}
                           </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {cliente.ruta_nombre || 'Sin ruta'}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {cliente.ruta_codigo || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">

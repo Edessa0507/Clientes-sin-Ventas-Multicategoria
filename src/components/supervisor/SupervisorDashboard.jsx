@@ -4,15 +4,18 @@ import {
   Shield, 
   LogOut, 
   Users, 
+  UserCheck, 
   TrendingUp, 
-  BarChart3,
-  Filter,
-  CheckCircle,
-  AlertCircle,
-  User,
-  RefreshCw,
-  Wifi,
-  WifiOff
+  Activity, 
+  RefreshCw, 
+  Wifi, 
+  WifiOff, 
+  User, 
+  LogOut, 
+  CheckCircle, 
+  AlertCircle, 
+  Sun, 
+  Moon 
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useUser } from '../../context/UserContext'
@@ -27,7 +30,9 @@ const SupervisorDashboard = () => {
   
   // Estados de datos
   const [vendedores, setVendedores] = useState([])
-  const [selectedVendedores, setSelectedVendedores] = useState([])
+  const [filterVendedor, setFilterVendedor] = useState('todos')
+  const [filterRuta, setFilterRuta] = useState('todas')
+  const [rutasDisponibles, setRutasDisponibles] = useState([])
   const [statsData, setStatsData] = useState({
     totalVendedores: 0,
     totalClientes: 0,
@@ -82,7 +87,6 @@ const SupervisorDashboard = () => {
       const asignacionesData = asignacionesResult.data || []
 
       setVendedores(vendedoresData)
-      setSelectedVendedores(vendedoresData.map(v => v.codigo))
       
       // Calcular estadísticas
       calculateStats(vendedoresData, asignacionesData)
@@ -99,37 +103,79 @@ const SupervisorDashboard = () => {
   const calculateStats = (vendedoresData, asignacionesData) => {
     const totalVendedores = vendedoresData.length
     
-    // Agrupar asignaciones por vendedor usando código
-    const vendedorAsignaciones = {}
+    // Procesar datos para estadísticas por vendedor
+    const vendedorMap = new Map()
+    const rutasSet = new Set()
+    
     asignacionesData.forEach(asignacion => {
-      if (!vendedorAsignaciones[asignacion.vendedor_codigo]) {
-        vendedorAsignaciones[asignacion.vendedor_codigo] = []
+      const vendedorCodigo = asignacion.vendedor_codigo
+      if (!vendedorMap.has(vendedorCodigo)) {
+        vendedorMap.set(vendedorCodigo, {
+          vendedor: {
+            codigo: vendedorCodigo,
+            nombre_completo: asignacion.vendedor_nombre,
+            ruta_codigo: asignacion.ruta_codigo,
+            ruta_nombre: asignacion.ruta_nombre
+          },
+          clientes: new Map(),
+          totalActivaciones: 0
+        })
       }
-      vendedorAsignaciones[asignacion.vendedor_codigo].push(asignacion)
+      
+      const vendedorData = vendedorMap.get(vendedorCodigo)
+      const clienteCodigo = asignacion.cliente_codigo
+      
+      if (!vendedorData.clientes.has(clienteCodigo)) {
+        vendedorData.clientes.set(clienteCodigo, {
+          codigo: clienteCodigo,
+          nombre: asignacion.cliente_nombre,
+          ruta_codigo: asignacion.ruta_codigo,
+          ruta_nombre: asignacion.ruta_nombre,
+          categorias: {}
+        })
+      }
+      
+      const cliente = vendedorData.clientes.get(clienteCodigo)
+      cliente.categorias[asignacion.categoria_codigo] = {
+        estado: asignacion.estado || 0,
+        nombre: asignacion.categoria_nombre
+      }
+      
+      // Contar activaciones
+      if (asignacion.estado === 'Activado') {
+        vendedorData.totalActivaciones++
+      }
+      
+      // Recopilar rutas disponibles
+      if (asignacion.ruta_codigo && asignacion.ruta_nombre) {
+        rutasSet.add(`${asignacion.ruta_codigo}|${asignacion.ruta_nombre}`)
+      }
     })
+    
+    // Actualizar rutas disponibles
+    const rutasArray = Array.from(rutasSet).map(ruta => {
+      const [codigo, nombre] = ruta.split('|')
+      return { codigo, nombre }
+    })
+    setRutasDisponibles(rutasArray)
 
     // Calcular stats por vendedor
-    const vendedorStatsData = vendedoresData.map(vendedor => {
-      const asignaciones = vendedorAsignaciones[vendedor.codigo] || []
-      const clientesUnicos = new Set(asignaciones.map(a => a.cliente_codigo))
-      const totalClientes = clientesUnicos.size
-      
-      // Calcular clientes totalmente activados
-      const clientesActivados = Array.from(clientesUnicos).filter(clienteCodigo => {
-        const clienteAsignaciones = asignaciones.filter(a => a.cliente_codigo === clienteCodigo)
-        return clienteAsignaciones.length === 4 && 
-               clienteAsignaciones.every(a => a.estado === 'Activado')
+    const vendedorStatsData = Array.from(vendedorMap.values()).map(vendedorData => {
+      const totalClientes = vendedorData.clientes.size
+      const clientesActivados = Array.from(vendedorData.clientes.values()).filter(cliente => {
+        const categorias = Object.values(cliente.categorias)
+        return categorias.length === 4 && categorias.every(categoria => categoria.estado === 'Activado')
       }).length
 
       const porcentajeActivacion = totalClientes > 0 ? Math.round((clientesActivados / totalClientes) * 100) : 0
 
       return {
-        vendedor,
+        vendedor: vendedorData.vendedor,
         totalClientes,
         clientesActivados,
         porcentajeActivacion,
-        totalAsignaciones: asignaciones.length,
-        activacionesTotales: asignaciones.filter(a => a.estado === 'Activado').length
+        totalAsignaciones: vendedorData.totalActivaciones,
+        activacionesTotales: vendedorData.totalActivaciones
       }
     })
 
@@ -149,25 +195,20 @@ const SupervisorDashboard = () => {
   }
 
   const handleVendedorToggle = (vendedorCodigo) => {
-    setSelectedVendedores(prev => {
-      if (prev.includes(vendedorCodigo)) {
-        return prev.filter(codigo => codigo !== vendedorCodigo)
-      } else {
-        return [...prev, vendedorCodigo]
-      }
-    })
+    // No implementado
   }
 
   const selectAllVendedores = () => {
-    setSelectedVendedores(vendedores.map(v => v.codigo))
+    // No implementado
   }
 
   const clearSelection = () => {
-    setSelectedVendedores([])
+    // No implementado
   }
 
   const filteredVendedorStats = vendedorStats.filter(stat => 
-    selectedVendedores.includes(stat.vendedor.codigo)
+    (filterVendedor === 'todos' || stat.vendedor.codigo === filterVendedor) &&
+    (filterRuta === 'todas' || stat.vendedor.ruta_codigo === filterRuta)
   )
 
   if (loading) {
@@ -197,6 +238,7 @@ const SupervisorDashboard = () => {
             </div>
 
             <div className="flex items-center space-x-4">
+              {/* Indicador de conexión */}
               <div className="flex items-center space-x-2">
                 {isOnline ? (
                   <Wifi className="w-5 h-5 text-success-500" />
@@ -208,6 +250,26 @@ const SupervisorDashboard = () => {
                 </span>
               </div>
 
+              {/* Botón modo oscuro/claro */}
+              <button
+                onClick={() => {
+                  const isDark = document.documentElement.classList.contains('dark')
+                  if (isDark) {
+                    document.documentElement.classList.remove('dark')
+                    localStorage.setItem('theme', 'light')
+                  } else {
+                    document.documentElement.classList.add('dark')
+                    localStorage.setItem('theme', 'dark')
+                  }
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Cambiar tema"
+              >
+                <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400 dark:hidden" />
+                <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400 hidden dark:block" />
+              </button>
+
+              {/* Botón de actualizar */}
               <button
                 onClick={loadData}
                 disabled={loading}
@@ -216,6 +278,7 @@ const SupervisorDashboard = () => {
                 <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
               </button>
 
+              {/* Botón de cerrar sesión */}
               <button
                 onClick={logout}
                 className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
@@ -351,7 +414,7 @@ const SupervisorDashboard = () => {
               >
                 <input
                   type="checkbox"
-                  checked={selectedVendedores.includes(vendedor.codigo)}
+                  checked={false}
                   onChange={() => handleVendedorToggle(vendedor.codigo)}
                   className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                 />
@@ -368,11 +431,69 @@ const SupervisorDashboard = () => {
           </div>
         </motion.div>
 
-        {/* Tabla de rendimiento por vendedor */}
+        {/* Filtro por vendedor */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
+          className="card mb-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              Filtro por vendedor
+            </h3>
+          </div>
+
+          <div className="sm:w-64">
+            <select
+              value={filterVendedor}
+              onChange={(e) => setFilterVendedor(e.target.value)}
+              className="input-field"
+            >
+              <option value="todos">Todos los vendedores</option>
+              {vendedorStats.map(stat => (
+                <option key={stat.vendedor.codigo} value={stat.vendedor.codigo}>
+                  {stat.vendedor.nombre_completo}
+                </option>
+              ))}
+            </select>
+          </div>
+        </motion.div>
+
+        {/* Filtro por ruta */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="card mb-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              Filtro por ruta
+            </h3>
+          </div>
+
+          <div className="sm:w-48">
+            <select
+              value={filterRuta}
+              onChange={(e) => setFilterRuta(e.target.value)}
+              className="input-field"
+            >
+              <option value="todas">Todas las rutas</option>
+              {rutasDisponibles.map(ruta => (
+                <option key={ruta.codigo} value={ruta.codigo}>
+                  {ruta.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        </motion.div>
+
+        {/* Tabla de rendimiento por vendedor */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
           className="card overflow-hidden"
         >
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -393,8 +514,11 @@ const SupervisorDashboard = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Vendedor
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Ruta
+                  </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Clientes
+                    Total Clientes
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Activados
@@ -424,6 +548,14 @@ const SupervisorDashboard = () => {
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                           {stat.vendedor.codigo}
                         </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {stat.vendedor.ruta_nombre || 'Sin ruta'}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {stat.vendedor.ruta_codigo || '-'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 dark:text-white">

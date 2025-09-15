@@ -261,11 +261,19 @@ export const adminService = {
         .order('created_at', { ascending: false })
         .limit(1)
       
+      // Obtener datos recientes para mostrar en dashboard (limitado a 15)
+      const { data: recentData } = await supabase
+        .from('asignaciones')
+        .select('cliente_nombre, vendedor_nombre, ruta_nombre, categoria_nombre')
+        .order('created_at', { ascending: false })
+        .limit(15)
+      
       const stats = {
         totalSupervisores: uniqueSupervisores.size,
         totalVendedores: uniqueVendedores.size,
         totalClientes: uniqueClientes.size,
-        ultimaImportacion: ultimaImportacion?.[0] || null
+        ultimaImportacion: ultimaImportacion?.[0] || null,
+        recentData: recentData || []
       }
       
       console.log('Estadísticas cargadas:', stats)
@@ -281,11 +289,19 @@ export const adminService = {
     try {
       // Si es modo reemplazo, eliminar datos del rango de fechas
       if (replaceMode && fechaInicio && fechaFin) {
-        await supabase
+        console.log('Eliminando datos existentes del rango:', fechaInicio, 'a', fechaFin)
+        const deleteResult = await supabase
           .from('asignaciones')
           .delete()
-          .gte('created_at', fechaInicio)
-          .lte('created_at', fechaFin)
+          .gte('fecha', fechaInicio)
+          .lte('fecha', fechaFin)
+        
+        console.log('Resultado de eliminación:', deleteResult)
+        
+        if (deleteResult.error) {
+          console.error('Error eliminando datos:', deleteResult.error)
+          throw deleteResult.error
+        }
       }
 
       // Insertar nuevos datos
@@ -304,6 +320,34 @@ export const adminService = {
           fecha_inicio: fechaInicio,
           fecha_fin: fechaFin
         })
+
+      // Cargar datos reales directamente desde Supabase
+      const dashboardResult = await adminService.getDashboardStats()
+      if (dashboardResult.data) {
+        const dashboardWithRecentData = {
+          ...dashboardResult.data,
+          recentData: dashboardResult.data.recentData || []
+        }
+        setDashboardData(dashboardWithRecentData)
+        
+        // Datos de ejemplo para gráficos (reemplazar con datos reales)
+        const chartDataExample = [
+          { zona: 'Norte', activacion: 85 },
+          { zona: 'Sur', activacion: 72 },
+          { zona: 'Este', activacion: 68 },
+          { zona: 'Oeste', activacion: 91 }
+        ]
+        setChartData(chartDataExample)
+
+        // Datos para gráfico de pie
+        const pieDataExample = [
+          { name: 'ENSURE', value: 25, color: '#3b82f6' },
+          { name: 'CHOCOLATE', value: 30, color: '#10b981' },
+          { name: 'ALPINA', value: 20, color: '#f59e0b' },
+          { name: 'SUPER DE ALIM', value: 25, color: '#ef4444' }
+        ]
+        setPieData(pieDataExample)
+      } 
 
       return { data: result, error: null }
     } catch (error) {

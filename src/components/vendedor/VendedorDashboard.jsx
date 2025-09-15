@@ -14,7 +14,8 @@ import {
   User, 
   LogOut, 
   Sun, 
-  Moon 
+  Moon,
+  Package
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useUser } from '../../context/UserContext'

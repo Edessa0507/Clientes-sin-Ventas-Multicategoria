@@ -70,7 +70,7 @@ AND NOT EXISTS (
     WHERE v.codigo = TRIM(UPPER(asignaciones.vendedor_codigo))
 );
 
--- 6. Insertar supervisores desde asignaciones si no existen
+-- 6. Insertar supervisores desde asignaciones si no existen (evitando duplicados de email)
 INSERT INTO supervisores (codigo, nombre_completo, activo, email)
 SELECT DISTINCT 
     TRIM(UPPER(supervisor_codigo)) as codigo,
@@ -88,6 +88,15 @@ AND supervisor_codigo != ''
 AND NOT EXISTS (
     SELECT 1 FROM supervisores s 
     WHERE s.codigo = TRIM(UPPER(asignaciones.supervisor_codigo))
+)
+AND NOT EXISTS (
+    SELECT 1 FROM supervisores s2 
+    WHERE s2.email = CASE 
+        WHEN TRIM(asignaciones.supervisor_nombre) ILIKE '%CARLOS VALDEZ%' THEN 'cvaldez@edessa.com.do'
+        WHEN TRIM(asignaciones.supervisor_nombre) ILIKE '%ISMAEL ZORRILLA%' THEN 'ismael.zorrilla@edessa.do'
+        WHEN TRIM(asignaciones.supervisor_nombre) ILIKE '%SEVERO ESCALANTE%' THEN 'severo.escalante@edessa.do'
+        ELSE LOWER(REPLACE(TRIM(asignaciones.supervisor_nombre), ' ', '.')) || '@edessa.do'
+    END
 );
 
 -- 7. Actualizar registros existentes con activo = true
@@ -95,11 +104,9 @@ UPDATE vendedores SET activo = true WHERE activo IS NULL;
 UPDATE supervisores SET activo = true WHERE activo IS NULL;
 
 -- 8. Verificar resultados
-SELECT 'vendedores' as tabla, COUNT(*) as total FROM vendedores
-UNION ALL
+SELECT 'vendedores' as tabla, COUNT(*) as total FROM vendedores;
 SELECT 'supervisores' as tabla, COUNT(*) as total FROM supervisores;
 
 -- 9. Mostrar muestra de datos
-SELECT 'VENDEDORES' as tipo, codigo, nombre_completo, activo FROM vendedores LIMIT 5
-UNION ALL
+SELECT 'VENDEDORES' as tipo, codigo, nombre_completo, activo FROM vendedores LIMIT 5;
 SELECT 'SUPERVISORES' as tipo, codigo, nombre_completo, activo FROM supervisores LIMIT 5;

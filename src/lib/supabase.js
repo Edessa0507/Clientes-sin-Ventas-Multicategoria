@@ -276,7 +276,7 @@ export const adminService = {
         totalSupervisores: uniqueSupervisores.size,
         totalVendedores: uniqueVendedores.size,
         totalClientes: uniqueClientes.size,
-        ultimaImportacion: ultimaImportacion?.[0] || null,
+        ultimaImportacion: (ultimaImportacion && ultimaImportacion.length > 0) ? ultimaImportacion[0] : null,
         recentData: recentData || []
       }
       

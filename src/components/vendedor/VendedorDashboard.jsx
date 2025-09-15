@@ -79,16 +79,16 @@ const VendedorDashboard = () => {
   const loadClientesData = async () => {
     setLoading(true)
     try {
-      let data = []
+      let clientesData = []
       let fromCache = false
       
       if (isOnline) {
         // Cargar desde Supabase usando código de vendedor
         const result = await vendedorService.getClientesByVendedor(user.codigo)
         if (result.data) {
-          data = result.data
+          clientesData = result.data
           // Cache offline simplificado (opcional)
-          // await offlineCache.saveVendedorData(user.codigo, data)
+          // await offlineCache.saveVendedorData(user.codigo, clientesData)
           setLastUpdate(new Date())
         } else {
           throw new Error('No se pudieron cargar los datos')
@@ -101,7 +101,7 @@ const VendedorDashboard = () => {
       }
 
       // Procesar datos de asignaciones
-      const processedData = processVendedorData(data)
+      const processedData = processVendedorData(clientesData)
       setClientesData(processedData.clientesAgrupados)
       calculateStats(processedData.clientesAgrupados)
     } catch (error) {

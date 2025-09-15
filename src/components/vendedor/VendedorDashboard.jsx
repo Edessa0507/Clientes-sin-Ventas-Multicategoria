@@ -75,48 +75,40 @@ const VendedorDashboard = () => {
     filterData()
   }, [clientesData, searchTerm, filterStatus, filterCategory])
 
-  const loadData = async () => {
-    if (!user?.id) return
-
+  const loadClientesData = async () => {
     setLoading(true)
     try {
-      let data = null
+      let data = []
       let fromCache = false
-
+      
       if (isOnline) {
-        // Intentar cargar desde la API
-        const result = await vendedorService.getClientesByVendedor(user.id)
+        // Cargar desde Supabase usando código de vendedor
+        const result = await vendedorService.getClientesByVendedor(user.codigo)
         if (result.data) {
-          data = processVendedorData(result.data)
-          // Guardar en cache
-          await offlineCache.cacheVendedorData(user.id, {
-            asignaciones: result.data,
-            clientes: data.clientes,
-            categorias: data.categorias
-          })
+          data = result.data
+          // Guardar en cache offline
+          await offlineCache.saveVendedorData(user.codigo, data)
           setLastUpdate(new Date())
-        }
-      }
-
-      // Si no hay datos online o no hay conexión, usar cache
-      if (!data) {
-        const cachedData = await offlineCache.getCachedVendedorData(user.id)
-        if (cachedData) {
-          data = processVendedorData(cachedData.asignaciones, cachedData.clientes, cachedData.categorias)
-          fromCache = true
-          setLastUpdate(new Date(cachedData.timestamp))
-        }
-      }
-
-      if (data) {
-        setClientesData(data.clientesAgrupados)
-        calculateStats(data.clientesAgrupados)
-        
-        if (fromCache) {
-          toast('Mostrando datos guardados', { icon: '📱' })
+        } else {
+          throw new Error('No se pudieron cargar los datos')
         }
       } else {
-        toast.error('No se pudieron cargar los datos')
+        // Cargar desde cache offline
+        data = await offlineCache.getVendedorData(user.codigo)
+        fromCache = true
+        if (!data || data.length === 0) {
+          toast.error('No hay datos disponibles sin conexión')
+          return
+        }
+      }
+
+      // Procesar datos de asignaciones
+      const processedData = processVendedorData(data)
+      setClientesData(processedData.clientesAgrupados)
+      calculateStats(processedData.clientesAgrupados)
+      
+      if (fromCache) {
+        toast('Mostrando datos guardados', { icon: '📱' })
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -126,26 +118,37 @@ const VendedorDashboard = () => {
     }
   }
 
-  const processVendedorData = (asignaciones, clientes = null, categorias = null) => {
-    // Si los datos vienen de la API, extraer clientes y categorías
-    if (!clientes && asignaciones.length > 0) {
-      clientes = asignaciones.map(a => a.clientes).filter(Boolean)
-      categorias = ['ENSURE', 'CHOCOLATE', 'ALPINA', 'SUPER_DE_ALIM'].map(codigo => ({
-        codigo,
-        nombre: codigo.replace('_', ' ')
-      }))
+  const processVendedorData = (asignaciones) => {
+    // Procesar asignaciones desnormalizadas directamente
+    if (!asignaciones || asignaciones.length === 0) {
+      return { clientesAgrupados: [] }
     }
 
-    // Formatear datos
-    const formattedData = dataUtils.formatAsignacionesData(asignaciones, clientes, categorias)
-    
     // Agrupar por cliente
-    const clientesAgrupados = dataUtils.groupByCliente(formattedData)
+    const clientesMap = {}
+    
+    asignaciones.forEach(asignacion => {
+      const clienteKey = asignacion.cliente_codigo
+      
+      if (!clientesMap[clienteKey]) {
+        clientesMap[clienteKey] = {
+          codigo: asignacion.cliente_codigo,
+          nombre: asignacion.cliente_nombre,
+          categorias: {}
+        }
+      }
+      
+      // Agregar categoría
+      clientesMap[clienteKey].categorias[asignacion.categoria_codigo] = {
+        estado: asignacion.estado || 0,
+        nombre: asignacion.categoria_nombre
+      }
+    })
+
+    const clientesAgrupados = Object.values(clientesMap)
 
     return {
-      clientesAgrupados,
-      clientes,
-      categorias
+      clientesAgrupados
     }
   }
 

@@ -11,7 +11,7 @@ export const auth = {
   async loginWithCode(codigo, tipo) {
     try {
       let table = tipo === 'supervisor' ? 'supervisores' : 'vendedores'
-      let query = supabase.from(table).select('id, codigo, nombre_completo, zona_id, supervisor_id, email').eq('activo', true)
+      let query = supabase.from(table).select('id, codigo, nombre_completo, email, activo').eq('activo', true)
       
       if (tipo === 'supervisor') {
         // Para supervisores: buscar por email exacto (case-insensitive)
@@ -34,9 +34,7 @@ export const auth = {
           codigo: data.codigo,
           email: data.email,
           nombre: data.nombre_completo,
-          tipo: tipo,
-          zona_id: data.zona_id,
-          supervisor_id: data.supervisor_id
+          tipo: tipo
         }
       }
 

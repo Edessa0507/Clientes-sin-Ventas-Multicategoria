@@ -48,7 +48,7 @@ const VendedorDashboard = () => {
     const handleOnline = () => {
       setIsOnline(true)
       toast.success('Conexión restaurada')
-      loadData() // Recargar datos cuando vuelva la conexión
+      loadClientesData() // Recargar datos cuando vuelva la conexión
     }
     
     const handleOffline = () => {
@@ -67,7 +67,7 @@ const VendedorDashboard = () => {
 
   // Cargar datos al montar el componente
   useEffect(() => {
-    loadData()
+    loadClientesData()
   }, [user])
 
   // Filtrar datos cuando cambien los filtros
@@ -156,7 +156,7 @@ const VendedorDashboard = () => {
     const totalClientes = clientesAgrupados.length
     const clientesActivados = clientesAgrupados.filter(cliente => {
       const categorias = Object.values(cliente.categorias)
-      return categorias.every(estado => estado === 'Activado')
+      return categorias.every(cat => cat.estado === 'Activado')
     }).length
     
     const clientesFalta = totalClientes - clientesActivados
@@ -176,8 +176,8 @@ const VendedorDashboard = () => {
     // Filtro por búsqueda
     if (searchTerm) {
       filtered = filtered.filter(cliente =>
-        cliente.cliente_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cliente.cliente_codigo.includes(searchTerm)
+        cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cliente.codigo.includes(searchTerm)
       )
     }
 
@@ -187,12 +187,12 @@ const VendedorDashboard = () => {
         const categorias = Object.values(cliente.categorias)
         switch (filterStatus) {
           case 'activado':
-            return categorias.every(estado => estado === 'Activado')
+            return categorias.every(cat => cat.estado === 'Activado')
           case 'falta':
-            return categorias.some(estado => estado === 'Activado') && 
-                   categorias.some(estado => estado !== 'Activado')
+            return categorias.some(cat => cat.estado === 'Activado') && 
+                   categorias.some(cat => cat.estado !== 'Activado')
           case 'cero':
-            return categorias.every(estado => estado === '0')
+            return categorias.every(cat => cat.estado === '0')
           default:
             return true
         }
@@ -202,8 +202,8 @@ const VendedorDashboard = () => {
     // Filtro por categoría específica
     if (filterCategory !== 'todas') {
       filtered = filtered.filter(cliente => {
-        const estado = cliente.categorias[filterCategory.toUpperCase()]
-        return estado === 'Activado'
+        const categoria = cliente.categorias[filterCategory.toUpperCase()]
+        return categoria && categoria.estado === 'Activado'
       })
     }
 
@@ -238,9 +238,9 @@ const VendedorDashboard = () => {
 
   const getClienteStatus = (categorias) => {
     const estados = Object.values(categorias)
-    if (estados.every(estado => estado === 'Activado')) {
+    if (estados.every(cat => cat.estado === 'Activado')) {
       return 'activado'
-    } else if (estados.some(estado => estado === 'Activado')) {
+    } else if (estados.some(cat => cat.estado === 'Activado')) {
       return 'falta'
     } else {
       return 'cero'
@@ -288,7 +288,7 @@ const VendedorDashboard = () => {
 
               {/* Botón de actualizar */}
               <button
-                onClick={loadData}
+                onClick={loadClientesData}
                 disabled={loading}
                 className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >
@@ -509,24 +509,24 @@ const VendedorDashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {cliente.cliente_nombre}
+                            {cliente.nombre}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {cliente.cliente_codigo}
+                            {cliente.codigo}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {getStatusBadge(cliente.categorias.ENSURE || '0')}
+                        {getStatusBadge(cliente.categorias.ENSURE?.estado || '0')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {getStatusBadge(cliente.categorias.CHOCOLATE || '0')}
+                        {getStatusBadge(cliente.categorias.CHOCOLATE?.estado || '0')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {getStatusBadge(cliente.categorias.ALPINA || '0')}
+                        {getStatusBadge(cliente.categorias.ALPINA?.estado || '0')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {getStatusBadge(cliente.categorias.SUPER_DE_ALIM || '0')}
+                        {getStatusBadge(cliente.categorias.SUPER_DE_ALIM?.estado || '0')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         {clienteStatus === 'activado' ? (

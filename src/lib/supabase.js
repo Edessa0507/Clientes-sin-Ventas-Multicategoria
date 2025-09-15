@@ -109,20 +109,33 @@ export const auth = {
   }
 }
 
-// Funciones para vendedores
+// Función para obtener clientes por vendedor - SIMPLIFICADA
 export const vendedorService = {
   async getClientesByVendedor(vendedorCodigo) {
     try {
-      // Obtener asignaciones por código de vendedor (desnormalizado)
+      console.log('Buscando datos para vendedor:', vendedorCodigo)
+      
       const { data, error } = await supabase
         .from('asignaciones')
-        .select('*')
+        .select(`
+          cliente_codigo,
+          cliente_nombre,
+          categoria_codigo,
+          categoria_nombre,
+          estado
+        `)
         .eq('vendedor_codigo', vendedorCodigo)
-
-      if (error) throw error
+      
+      if (error) {
+        console.error('Error en consulta:', error)
+        throw error
+      }
+      
+      console.log('Datos encontrados:', data?.length || 0, 'registros')
       return { data, error: null }
     } catch (error) {
-      return { data: null, error: error.message }
+      console.error('Error getting vendedor data:', error)
+      return { data: null, error }
     }
   }
 }

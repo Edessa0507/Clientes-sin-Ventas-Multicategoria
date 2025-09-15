@@ -73,8 +73,8 @@ const VendedorDashboard = () => {
 
   // Aplicar filtros cuando cambien los estados
   useEffect(() => {
-    applyFilters()
-  }, [data, searchTerm, filterStatus, filterCategory, filterRuta])
+    filterData()
+  }, [clientesData, searchTerm, filterStatus, filterCategory, filterRuta])
 
   const loadClientesData = async () => {
     setLoading(true)
@@ -184,8 +184,8 @@ const VendedorDashboard = () => {
     // Filtro por búsqueda
     if (searchTerm) {
       filtered = filtered.filter(cliente =>
-        cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cliente.codigo.includes(searchTerm)
+        cliente.cliente_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cliente.cliente_id.includes(searchTerm)
       )
     }
 

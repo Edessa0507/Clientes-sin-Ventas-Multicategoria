@@ -14,7 +14,8 @@ import {
   CheckCircle, 
   AlertCircle, 
   Sun, 
-  Moon 
+  Moon,
+  BarChart3
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useUser } from '../../context/UserContext'

@@ -9,22 +9,26 @@ import {
   Calendar,
   Database,
   Eye,
-  Download
+  Download,
+  Server,
+  Cloud,
+  RefreshCw
 } from 'lucide-react'
-import * as XLSX from 'xlsx'
 import toast from 'react-hot-toast'
-import { adminService } from '../../../lib/supabase'
+import { supabase } from '../../../lib/supabase'
 
 const UploadSection = () => {
   const [dragActive, setDragActive] = useState(false)
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [previewData, setPreviewData] = useState(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [processingStatus, setProcessingStatus] = useState(null)
   const [importMode, setImportMode] = useState('reemplazo') // 'reemplazo' o 'incremental'
   const [dateRange, setDateRange] = useState({
     fechaInicio: '',
     fechaFin: ''
   })
+  const [stagingData, setStagingData] = useState(null)
 
   const handleDrag = useCallback((e) => {
     e.preventDefault()
@@ -71,134 +75,144 @@ const UploadSection = () => {
     processFile(selectedFile)
   }
 
-  const processFile = async (file) => {
+  const uploadToStorage = async (file) => {
     setLoading(true)
+    setUploadProgress(0)
+    setProcessingStatus('Subiendo archivo...')
+    
     try {
-      const data = await file.arrayBuffer()
-      const workbook = XLSX.read(data)
-      const sheetName = workbook.SheetNames[0]
-      const worksheet = workbook.Sheets[sheetName]
-      const jsonData = XLSX.utils.sheet_to_json(worksheet)
+      // Generate unique filename
+      const timestamp = new Date().getTime()
+      const fileName = `excel-import-${timestamp}-${file.name}`
+      
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('excel-imports')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
 
-      if (jsonData.length === 0) {
-        toast.error('El archivo está vacío')
-        return
+      if (error) {
+        throw new Error(`Error subiendo archivo: ${error.message}`)
       }
 
-      // Validar columnas requeridas
-      const requiredColumns = ['SUPERVISOR', 'VENDEDOR', 'RUTA', 'CLIENTE', 'ENSURE', 'CHOCOLATE', 'ALPINA', 'SUPER DE ALIM.', 'CONDICIONATE']
-      const fileColumns = Object.keys(jsonData[0])
-      const missingColumns = requiredColumns.filter(col => !fileColumns.includes(col))
-
-      if (missingColumns.length > 0) {
-        toast.error(`Columnas faltantes: ${missingColumns.join(', ')}`)
-        return
-      }
-
-      // Procesar y normalizar datos
-      const processedData = jsonData.map((row, index) => {
-        try {
-          // Extraer código y nombre del vendedor
-          const vendedorMatch = row.VENDEDOR.match(/^\s*([A-Za-z0-9]+)\s*-\s*(.+)$/)
-          const vendedorCodigo = vendedorMatch ? vendedorMatch[1].trim() : ''
-          const vendedorNombre = vendedorMatch ? vendedorMatch[2].trim() : row.VENDEDOR
-
-          // Extraer código y nombre del cliente
-          const clienteMatch = row.CLIENTE.match(/^(\d+)\s*-\s*(.+)$/)
-          const clienteCodigo = clienteMatch ? clienteMatch[1] : ''
-          const clienteNombre = clienteMatch ? clienteMatch[2].trim() : row.CLIENTE
-
-          return {
-            supervisor_codigo: extractCode(row.SUPERVISOR),
-            supervisor_nombre: extractName(row.SUPERVISOR),
-            vendedor_codigo: vendedorCodigo,
-            vendedor_nombre: vendedorNombre,
-            ruta_codigo: extractCode(row.RUTA),
-            ruta_nombre: extractName(row.RUTA),
-            cliente_codigo: clienteCodigo,
-            cliente_nombre: clienteNombre,
-            categorias: {
-              ENSURE: normalizeEstado(row.ENSURE),
-              CHOCOLATE: normalizeEstado(row.CHOCOLATE),
-              ALPINA: normalizeEstado(row.ALPINA),
-              SUPER_DE_ALIM: normalizeEstado(row['SUPER DE ALIM.'])
-            },
-            condicionate: row.CONDICIONATE,
-            fila: index + 2
+      setUploadProgress(100)
+      setProcessingStatus('Archivo subido, iniciando procesamiento...')
+      
+      // Call Edge Function to process the file
+      const { data: processResult, error: processError } = await supabase.functions
+        .invoke('process-excel', {
+          body: {
+            fileName: fileName,
+            importMode: importMode,
+            dateRange: importMode === 'reemplazo' ? dateRange : null
           }
-        } catch (error) {
-          console.error(`Error procesando fila ${index + 2}:`, error)
-          return null
-        }
-      }).filter(Boolean)
+        })
 
-      setPreviewData({
-        original: jsonData.slice(0, 10), // Primeras 10 filas para preview
-        processed: processedData, // TODOS los datos procesados, no solo 10
-        totalRows: jsonData.length,
-        validRows: processedData.length,
-        errors: jsonData.length - processedData.length
-      })
+      if (processError) {
+        throw new Error(`Error procesando archivo: ${processError.message}`)
+      }
 
-      toast.success(`Archivo procesado: ${processedData.length} registros válidos`)
+      if (!processResult.success) {
+        throw new Error(processResult.error || 'Error desconocido en el procesamiento')
+      }
+
+      setProcessingStatus('Procesamiento completado')
+      toast.success(processResult.message)
+      
+      // Load staging data for review
+      await loadStagingData()
+      
     } catch (error) {
-      console.error('Error processing file:', error)
-      toast.error('Error al procesar el archivo')
+      console.error('Error in upload process:', error)
+      toast.error(error.message)
+      setProcessingStatus(`Error: ${error.message}`)
     } finally {
       setLoading(false)
     }
   }
 
-  const extractCode = (text) => {
-    if (!text) return ''
-    const match = text.match(/^([A-Za-z0-9]+)/)
-    return match ? match[1] : ''
-  }
+  const loadStagingData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('asignaciones_staging')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100)
 
-  const extractName = (text) => {
-    if (!text) return ''
-    const match = text.match(/^[A-Za-z0-9]+\s*-\s*(.+)$/)
-    return match ? match[1].trim() : text
-  }
+      if (error) {
+        throw new Error(`Error cargando datos de staging: ${error.message}`)
+      }
 
-  const normalizeEstado = (value) => {
-    if (!value || value === '0' || value === 0) return '0'
-    if (value === 'Activado') return 'Activado'
-    return '0'
-  }
-
-  const handleImport = async () => {
-    if (!previewData) {
-      toast.error('No hay datos para importar')
-      return
+      setStagingData(data)
+    } catch (error) {
+      console.error('Error loading staging data:', error)
+      toast.error(error.message)
     }
+  }
 
-    if (importMode === 'reemplazo' && (!dateRange.fechaInicio || !dateRange.fechaFin)) {
-      toast.error('Selecciona el rango de fechas para el modo reemplazo')
+  const promoteToProduction = async () => {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase.rpc('promote_staging_to_production')
+      
+      if (error) {
+        throw new Error(`Error promoviendo datos: ${error.message}`)
+      }
+
+      toast.success(`Datos promovidos exitosamente: ${data[0].message}`)
+      setStagingData(null)
+      setFile(null)
+      setProcessingStatus(null)
+      
+    } catch (error) {
+      console.error('Error promoting to production:', error)
+      toast.error(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const clearStagingData = async () => {
+    if (!confirm('¿Estás seguro de que quieres eliminar todos los datos de staging? Esta acción no se puede deshacer.')) {
       return
     }
 
     setLoading(true)
     try {
-      // Preparar datos para la importación
-      const importData = []
+      const { error } = await supabase
+        .from('asignaciones_staging')
+        .delete()
+        .neq('id', 0) // Delete all records
+
+      if (error) {
+        throw new Error(`Error limpiando staging: ${error.message}`)
+      }
+
+      toast.success('Datos de staging eliminados')
+      setStagingData(null)
+      setFile(null)
+      setProcessingStatus(null)
       
-      // Expandir datos por categoría
-      previewData.processed.forEach(row => {
-        Object.entries(row.categorias).forEach(([categoria, estado]) => {
-          importData.push({
-            supervisor_codigo: row.supervisor_codigo,
-            supervisor_nombre: row.supervisor_nombre,
-            vendedor_codigo: row.vendedor_codigo,
-            vendedor_nombre: row.vendedor_nombre,
-            ruta_codigo: row.ruta_codigo,
-            ruta_nombre: row.ruta_nombre,
-            cliente_codigo: row.cliente_codigo,
-            cliente_nombre: row.cliente_nombre,
-            categoria_codigo: categoria,
-            categoria_nombre: categoria.replace('_', ' '),
-            estado: estado,
-            fecha: new Date().toISOString().split('T')[0]
+    } catch (error) {
+      console.error('Error clearing staging:', error)
+      toast.error(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const processFile = async (file) => {
+    // New server-side processing approach
+    await uploadToStorage(file)
+  }
+
+  const clearFile = () => {
+    setFile(null)
+    setStagingData(null)
+    setProcessingStatus(null)
+  }
           })
         })
       })

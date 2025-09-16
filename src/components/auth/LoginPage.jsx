@@ -63,8 +63,12 @@ const LoginPage = () => {
         } else {
           setNameLoading(true)
           try {
-            const name = await auth.getNameByCode(formData.codigo, loginType)
-            setAutocompletedName(name || '')
+            const result = await auth.getNameByCode(formData.codigo, loginType)
+            if (result && result.success) {
+              setAutocompletedName(result.data || '')
+            } else {
+              setAutocompletedName('')
+            }
           } catch (error) {
             setAutocompletedName('')
           } finally {

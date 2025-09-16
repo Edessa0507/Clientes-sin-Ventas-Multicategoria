@@ -126,23 +126,47 @@ export const auth = {
   // Autocompletar nombre por código o email
   async getNameByCode(codigo, tipo) {
     try {
-      let table = tipo === 'supervisor' ? 'supervisores' : 'vendedores'
-      let query = supabase.from(table).select('nombre_completo').eq('activo', true)
-      
       if (tipo === 'supervisor') {
-        // Para supervisores: buscar por email exacto (case-insensitive)
-        query = query.eq('email', codigo.toLowerCase())
+        // Mapear códigos conocidos para supervisores
+        const supervisorMap = {
+          'CVALDEZ': 'CARLOS',
+          'CARLOS': 'CARLOS',
+          'ISMAEL': 'ISMAEL', 
+          'SEVERO': 'SEVERO'
+        }
+        
+        const mappedCode = supervisorMap[codigo.toUpperCase()] || codigo.toUpperCase()
+        
+        // Buscar en asignaciones para obtener el nombre
+        const { data, error } = await supabase
+          .from('asignaciones')
+          .select('supervisor_nombre')
+          .eq('supervisor_codigo', mappedCode)
+          .limit(1)
+          .maybeSingle()
+        
+        if (error || !data) {
+          return { success: false, data: null }
+        }
+        
+        return { success: true, data: data.supervisor_nombre }
       } else {
-        // Para vendedores: buscar por código exacto (case-insensitive)
-        query = query.eq('codigo', codigo.toUpperCase())
+        // Para vendedores: buscar en asignaciones
+        const { data, error } = await supabase
+          .from('asignaciones')
+          .select('vendedor_nombre')
+          .eq('vendedor_codigo', codigo.toUpperCase())
+          .limit(1)
+          .maybeSingle()
+        
+        if (error || !data) {
+          return { success: false, data: null }
+        }
+        
+        return { success: true, data: data.vendedor_nombre }
       }
-      
-      const { data, error } = await query.maybeSingle();
-
-      if (error || !data) return null
-      return data.nombre_completo
     } catch (error) {
-      return null
+      return { success: false, data: null }
     }
   }
 }

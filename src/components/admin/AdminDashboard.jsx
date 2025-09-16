@@ -22,7 +22,7 @@ import { useUser } from '../../context/UserContext'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import DashboardSection from './sections/DashboardSection'
 import UsersSection from './sections/UsersSection'
-import UploadSection from './sections/UploadSection'
+import UploadSectionNew from './sections/UploadSectionNew'
 import GuideSection from './sections/GuideSection'
 import RutasSection from './sections/RutasSection'
 
@@ -70,7 +70,7 @@ const AdminDashboard = () => {
       case 'dashboard':
         return <DashboardSection />
       case 'upload':
-        return <UploadSection />
+        return <UploadSectionNew />
       case 'users':
         return <UsersSection />
       case 'rutas':
@@ -162,9 +162,9 @@ const AdminDashboard = () => {
         </AnimatePresence>
 
         {/* Sidebar */}
-        <AnimatePresence>
+        <div className="lg:block">
           <motion.div
-            initial={{ x: -300 }}
+            initial={false}
             animate={{ x: sidebarOpen ? 0 : -300 }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className={`
@@ -247,7 +247,7 @@ const AdminDashboard = () => {
               </div>
             </div>
           </motion.div>
-        </AnimatePresence>
+        </div>
 
         {/* Main Content */}
         <div className="flex-1 min-w-0 lg:ml-0">

@@ -36,38 +36,49 @@ const DashboardSection = () => {
   const loadDashboardData = async () => {
     setLoading(true)
     try {
-      const session = auth.getSession()
+      // Cargar estadísticas básicas corregidas
+      const adminStats = await dashboardService.getAdminStats()
+      setStats({
+        totalSupervisores: adminStats.totalSupervisores || 0,
+        totalVendedores: adminStats.totalVendedores || 0,
+        totalClientes: adminStats.totalClientes || 0,
+        ultimaImportacion: adminStats.ultimaImportacion
+      })
       
-      // Cargar estadísticas básicas desde Supabase
-      try {
-        const statsResult = await adminService.getDashboardStats()
-        if (statsResult.data) {
-          setStats(statsResult.data)
-        }
-      } catch (error) {
-        console.error('Error loading stats:', error)
-        // Usar datos por defecto si falla
-        setStats({
-          totalSupervisores: 0,
-          totalClientes: 0,
-          ultimaImportacion: null
-        })
+      // Cargar datos para gráficos y tabla
+      const [rendimientoRutas, activacionCategoria, recentData] = await Promise.all([
+        dashboardService.getRendimientoPorRuta(),
+        dashboardService.getActivacionPorCategoria({}),
+        dashboardService.getRecentData(15)
+      ])
+      
+      // Preparar datos para gráfico de barras (rendimiento por ruta)
+      if (rendimientoRutas.data) {
+        const chartData = rendimientoRutas.data.slice(0, 10).map(ruta => ({
+          name: ruta.ruta.length > 15 ? ruta.ruta.substring(0, 15) + '...' : ruta.ruta,
+          value: ruta.porcentaje,
+          total: ruta.total,
+          activados: ruta.activados
+        }))
+        setChartData(chartData)
       }
       
-      // Cargar datos reales directamente desde Supabase
-      const dashboardResult = await adminService.getDashboardStats()
-      if (dashboardResult.data) {
-        setDashboardData(dashboardResult.data)
-        
-        // Usar datos reales de gráficos desde el servicio
-        if (dashboardResult.data.chartData) {
-          setChartData(dashboardResult.data.chartData)
-        }
-        
-        if (dashboardResult.data.pieData) {
-          setPieData(dashboardResult.data.pieData)
-        }
+      // Preparar datos para gráfico circular (categorías más faltantes)
+      if (activacionCategoria.data) {
+        const pieData = activacionCategoria.data.map(cat => ({
+          name: cat.categoria,
+          value: cat.total - cat.activados, // Clientes sin activar
+          porcentaje: 100 - cat.porcentaje
+        })).sort((a, b) => b.value - a.value).slice(0, 4)
+        setPieData(pieData)
       }
+      
+      setDashboardData({
+        rendimientoRutas: rendimientoRutas.data || [],
+        activacionCategoria: activacionCategoria.data || [],
+        recentData: recentData.data || []
+      })
+      
     } catch (error) {
       console.error('Error loading dashboard data:', error)
       toast.error('Error al cargar las estadísticas')
@@ -149,7 +160,7 @@ const DashboardSection = () => {
         <StatCard
           title="Última Importación"
           value={stats.ultimaImportacion ? 
-            new Date(stats.ultimaImportacion.created_at || stats.ultimaImportacion.fecha).toLocaleDateString() : 
+            new Date(stats.ultimaImportacion).toLocaleDateString() : 
             'Sin datos'
           }
           icon={Calendar}
@@ -159,7 +170,7 @@ const DashboardSection = () => {
 
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
-        {/* Gráfico de barras - Rendimiento por zona */}
+        {/* Gráfico de barras - Rendimiento por ruta */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -167,10 +178,10 @@ const DashboardSection = () => {
         >
           <div className="mb-4 sm:mb-6">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-              Rendimiento por Zona
+              Rendimiento por Ruta
             </h3>
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-              Comparación de activación por región
+              Top 10 rutas con mejor porcentaje de activación
             </p>
           </div>
           <div className="h-64 sm:h-80">
@@ -178,7 +189,7 @@ const DashboardSection = () => {
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
-                  dataKey="zona" 
+                  dataKey="name" 
                   tick={{ fontSize: 12 }}
                   interval={0}
                   angle={-45}
@@ -186,8 +197,14 @@ const DashboardSection = () => {
                   height={60}
                 />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="activacion" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Tooltip 
+                  formatter={(value, name) => [
+                    `${value}%`,
+                    'Porcentaje de Activación'
+                  ]}
+                  labelFormatter={(label) => `Ruta: ${label}`}
+                />
+                <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -216,10 +233,10 @@ const DashboardSection = () => {
                   cy="50%"
                   outerRadius={window.innerWidth < 640 ? 60 : 80}
                   dataKey="value"
-                  label={window.innerWidth < 640 ? false : ({ name, value }) => `${name}: ${value}%`}
+                  label={window.innerWidth < 640 ? false : ({ name, value }) => `${name}: ${value}`}
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={['#3b82f6', '#ef4444', '#f59e0b', '#10b981'][index % 4]} />
                   ))}
                 </Pie>
                 <Tooltip />

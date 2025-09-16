@@ -59,23 +59,14 @@ const DashboardSection = () => {
       if (dashboardResult.data) {
         setDashboardData(dashboardResult.data)
         
-        // Datos de ejemplo para gráficos (reemplazar con datos reales)
-        const chartDataExample = [
-          { zona: 'Norte', activacion: 85 },
-          { zona: 'Sur', activacion: 72 },
-          { zona: 'Este', activacion: 68 },
-          { zona: 'Oeste', activacion: 91 }
-        ]
-        setChartData(chartDataExample)
-
-        // Datos para gráfico de pie
-        const pieDataExample = [
-          { name: 'ENSURE', value: 25, color: '#3b82f6' },
-          { name: 'CHOCOLATE', value: 30, color: '#10b981' },
-          { name: 'ALPINA', value: 20, color: '#f59e0b' },
-          { name: 'SUPER DE ALIM', value: 25, color: '#ef4444' }
-        ]
-        setPieData(pieDataExample)
+        // Usar datos reales de gráficos desde el servicio
+        if (dashboardResult.data.chartData) {
+          setChartData(dashboardResult.data.chartData)
+        }
+        
+        if (dashboardResult.data.pieData) {
+          setPieData(dashboardResult.data.pieData)
+        }
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error)
@@ -92,21 +83,21 @@ const DashboardSection = () => {
       className="card"
     >
       <div className="flex items-center">
-        <div className={`flex-shrink-0 p-3 rounded-lg bg-${color}-100 dark:bg-${color}-900`}>
-          <Icon className={`h-6 w-6 text-${color}-600 dark:text-${color}-400`} />
+        <div className={`flex-shrink-0 p-2 sm:p-3 rounded-lg bg-${color}-100 dark:bg-${color}-900`}>
+          <Icon className={`h-5 w-5 sm:h-6 sm:w-6 text-${color}-600 dark:text-${color}-400`} />
         </div>
-        <div className="ml-4 flex-1">
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+        <div className="ml-3 sm:ml-4 flex-1 min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
             {title}
           </p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+          <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
             {value}
           </p>
           {change && (
-            <div className={`flex items-center text-sm ${
+            <div className={`flex items-center text-xs sm:text-sm ${
               changeType === 'positive' ? 'text-success-600' : 'text-red-600'
             }`}>
-              <TrendingUp className="w-4 h-4 mr-1" />
+              <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
               {change}
             </div>
           )}
@@ -124,19 +115,19 @@ const DashboardSection = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
           Dashboard Principal
         </h2>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
+        <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
           Resumen general del sistema y métricas clave
         </p>
       </div>
 
       {/* Estadísticas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Total Supervisores"
           value={stats.totalSupervisores || 0}
@@ -167,27 +158,34 @@ const DashboardSection = () => {
       </div>
 
       {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
         {/* Gráfico de barras - Rendimiento por zona */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
               Rendimiento por Zona
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Comparación de activación por región
             </p>
           </div>
-          <div className="h-80">
+          <div className="h-64 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="zona" />
-                <YAxis />
+                <XAxis 
+                  dataKey="zona" 
+                  tick={{ fontSize: 12 }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Bar dataKey="activacion" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -201,24 +199,24 @@ const DashboardSection = () => {
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
               Categorías Más Faltantes
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Distribución de productos sin activar
             </p>
           </div>
-          <div className="h-80">
+          <div className="h-64 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 <Pie
                   data={pieData}
                   cx="50%"
                   cy="50%"
-                  outerRadius={80}
+                  outerRadius={window.innerWidth < 640 ? 60 : 80}
                   dataKey="value"
-                  label={({ name, value }) => `${name}: ${value}%`}
+                  label={window.innerWidth < 640 ? false : ({ name, value }) => `${name}: ${value}%`}
                 >
                   {pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -232,22 +230,60 @@ const DashboardSection = () => {
       </div>
 
       {/* Top vendedores y resumen */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
         {/* Datos cargados - limitados a 15 */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card"
+          className="card lg:col-span-2"
         >
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
               Datos Cargados (Últimos 15)
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Vista previa de los datos en el sistema
             </p>
           </div>
-          <div className="overflow-x-auto">
+
+          {/* Vista móvil - Tarjetas */}
+          <div className="block sm:hidden">
+            <div className="space-y-3">
+              {dashboardData?.recentData?.slice(0, 15).map((item, index) => (
+                <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {item.cliente_nombre}
+                    </h4>
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
+                      {item.categoria_nombre}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div>
+                      <span className="font-medium">Vendedor:</span>
+                      <br />
+                      {item.vendedor_nombre}
+                    </div>
+                    <div>
+                      <span className="font-medium">Ruta:</span>
+                      <br />
+                      {item.ruta_nombre || 'Sin ruta'}
+                    </div>
+                  </div>
+                </div>
+              )) || (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No hay datos disponibles
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Vista desktop - Tabla */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
@@ -266,7 +302,7 @@ const DashboardSection = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {dashboardData.recentData?.slice(0, 15).map((item, index) => (
+                {dashboardData?.recentData?.slice(0, 15).map((item, index) => (
                   <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">
                       {item.cliente_nombre}
@@ -299,54 +335,54 @@ const DashboardSection = () => {
           animate={{ opacity: 1, y: 0 }}
           className="card"
         >
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
               Resumen General
             </h3>
           </div>
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Activity className="w-5 h-5 text-success-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-success-500" />
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Ventas Activas
                 </span>
               </div>
-              <span className="font-semibold text-gray-900 dark:text-white">
+              <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                 1,247
               </span>
             </div>
             
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Users className="w-5 h-5 text-primary-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Vendedores Activos
                 </span>
               </div>
-              <span className="font-semibold text-gray-900 dark:text-white">
+              <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                 29
               </span>
             </div>
             
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <AlertTriangle className="w-5 h-5 text-warning-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-warning-500" />
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   Categorías con Faltante
                 </span>
               </div>
-              <span className="font-semibold text-gray-900 dark:text-white">
+              <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                 342
               </span>
             </div>
             
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+            <div className="pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-600">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
                   Progreso General
                 </span>
-                <span className="text-sm font-bold text-primary-600">
+                <span className="text-xs sm:text-sm font-bold text-primary-600">
                   74%
                 </span>
               </div>
@@ -364,15 +400,51 @@ const DashboardSection = () => {
         animate={{ opacity: 1, y: 0 }}
         className="card"
       >
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="mb-4 sm:mb-6">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
             Importaciones Recientes
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
             Historial de cargas de datos
           </p>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Vista móvil - Tarjetas */}
+        <div className="block sm:hidden">
+          <div className="space-y-3">
+            {[
+              { fecha: '2024-01-15', tipo: 'Reemplazo', registros: 1247, estado: 'Completado' },
+              { fecha: '2024-01-14', tipo: 'Incremental', registros: 89, estado: 'Completado' },
+              { fecha: '2024-01-13', tipo: 'Reemplazo', registros: 1156, estado: 'Error' }
+            ].map((importacion, index) => (
+              <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                      {importacion.fecha}
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {importacion.tipo}
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    importacion.estado === 'Completado' 
+                      ? 'bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                  }`}>
+                    {importacion.estado}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  <span className="font-medium">Registros:</span> {importacion.registros.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Vista desktop - Tabla */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>

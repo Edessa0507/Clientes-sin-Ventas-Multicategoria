@@ -14,6 +14,7 @@ import {
   XCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { userManagementService } from '../../../lib/supabase'
 
 const UsersSection = () => {
   const [users, setUsers] = useState([])
@@ -23,55 +24,37 @@ const UsersSection = () => {
   const [filterRole, setFilterRole] = useState('todos')
   const [newUser, setNewUser] = useState({
     codigo: '',
-    nombre: '',
+    nombre_completo: '',
     email: '',
-    tipo: 'vendedor',
-    zona_id: '',
-    supervisor_id: ''
+    tipo: 'vendedor'
   })
 
-  // Datos de ejemplo
+  // Cargar usuarios reales desde Supabase
   useEffect(() => {
-    setUsers([
-      {
-        id: '1',
-        codigo: 'E56',
-        nombre: 'Pedro José Burgos',
-        email: 'pedro.burgos@edessa.com',
-        tipo: 'vendedor',
-        zona: 'Santo Domingo',
-        supervisor: 'Carlos Valdez',
-        activo: true,
-        ultimo_acceso: '2024-01-15T10:30:00Z'
-      },
-      {
-        id: '2',
-        codigo: 'SUP001',
-        nombre: 'Carlos Valdez',
-        email: 'carlos.valdez@edessa.com',
-        tipo: 'supervisor',
-        zona: 'Santo Domingo',
-        activo: true,
-        ultimo_acceso: '2024-01-15T09:15:00Z'
-      },
-      {
-        id: '3',
-        codigo: 'E81',
-        nombre: 'Yeuri Antonio Pardo Acosta',
-        email: 'yeuri.pardo@edessa.com',
-        tipo: 'vendedor',
-        zona: 'Santo Domingo',
-        supervisor: 'Ismael Zorrilla',
-        activo: true,
-        ultimo_acceso: '2024-01-14T16:45:00Z'
-      }
-    ])
+    loadUsers()
   }, [])
 
+  const loadUsers = async () => {
+    setLoading(true)
+    try {
+      const result = await userManagementService.getAllUsers()
+      if (result.data) {
+        setUsers(result.data)
+      } else {
+        toast.error('Error al cargar usuarios: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error loading users:', error)
+      toast.error('Error al cargar usuarios')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (user.nombre_completo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (user.codigo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesRole = filterRole === 'todos' || user.tipo === filterRole
     
@@ -79,57 +62,70 @@ const UsersSection = () => {
   })
 
   const handleCreateUser = async () => {
-    if (!newUser.codigo || !newUser.nombre || !newUser.email) {
+    if (!newUser.codigo || !newUser.nombre_completo || !newUser.email) {
       toast.error('Por favor completa todos los campos requeridos')
       return
     }
 
     setLoading(true)
     try {
-      // Simular creación de usuario
-      const user = {
-        id: Date.now().toString(),
-        ...newUser,
-        activo: true,
-        ultimo_acceso: null
+      const result = await userManagementService.createUser(newUser)
+      
+      if (result.data) {
+        await loadUsers() // Recargar lista
+        setShowCreateModal(false)
+        setNewUser({
+          codigo: '',
+          nombre_completo: '',
+          email: '',
+          tipo: 'vendedor'
+        })
+        toast.success('Usuario creado exitosamente')
+      } else {
+        toast.error('Error al crear usuario: ' + result.error)
       }
-      
-      setUsers(prev => [...prev, user])
-      setShowCreateModal(false)
-      setNewUser({
-        codigo: '',
-        nombre: '',
-        email: '',
-        tipo: 'vendedor',
-        zona_id: '',
-        supervisor_id: ''
-      })
-      
-      toast.success('Usuario creado exitosamente')
     } catch (error) {
+      console.error('Error creating user:', error)
       toast.error('Error al crear el usuario')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleToggleStatus = async (userId) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, activo: !user.activo }
-        : user
-    ))
-    
-    toast.success('Estado del usuario actualizado')
+  const handleToggleStatus = async (userId, tipo, currentStatus) => {
+    try {
+      const result = await userManagementService.toggleUserStatus(userId, tipo, !currentStatus)
+      
+      if (result.data) {
+        await loadUsers() // Recargar lista
+        toast.success('Estado del usuario actualizado')
+      } else {
+        toast.error('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error toggling user status:', error)
+      toast.error('Error al actualizar estado')
+    }
   }
 
-  const handleDeleteUser = async (userId) => {
+  const handleDeleteUser = async (userId, tipo) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
       return
     }
 
-    setUsers(prev => prev.filter(user => user.id !== userId))
-    toast.success('Usuario eliminado')
+    try {
+      const result = await userManagementService.deleteUser(userId, tipo)
+      
+      if (result.data) {
+        await loadUsers() // Recargar lista
+        toast.success('Usuario eliminado')
+      } else {
+        toast.error('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      toast.error('Error al eliminar usuario')
+    }
   }
 
   const getRoleIcon = (tipo) => {
@@ -310,12 +306,13 @@ const UsersSection = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
-                      onClick={() => handleToggleStatus(user.id, !user.activo)}
+                      onClick={() => handleToggleStatus(user.id, user.tipo, user.activo)}
+                      disabled={user.tipo === 'admin'}
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         user.activo
                           ? 'bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                      }`}
+                      } ${user.tipo === 'admin' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       {user.activo ? (
                         <>
@@ -331,26 +328,33 @@ const UsersSection = () => {
                     </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {user.ultimo_acceso 
-                      ? new Date(user.ultimo_acceso).toLocaleDateString()
-                      : 'Nunca'
+                    {user.created_at 
+                      ? new Date(user.created_at).toLocaleDateString()
+                      : 'N/A'
                     }
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
-                      <button
-                        className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300"
-                        title="Editar usuario"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                        title="Eliminar usuario"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {user.tipo !== 'admin' && (
+                        <>
+                          <button
+                            className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300"
+                            title="Editar usuario"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user.id, user.tipo)}
+                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                            title="Eliminar usuario"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      {user.tipo === 'admin' && (
+                        <span className="text-xs text-gray-400">Protegido</span>
+                      )}
                     </div>
                   </td>
                 </motion.tr>
@@ -398,15 +402,15 @@ const UsersSection = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Nombre Completo *
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Nombre Completo
                   </label>
                   <input
                     type="text"
-                    value={newUser.nombre}
-                    onChange={(e) => setNewUser(prev => ({ ...prev, nombre: e.target.value }))}
-                    className="input-field"
-                    placeholder="Nombre completo del usuario"
+                    value={newUser.nombre_completo}
+                    onChange={(e) => setNewUser(prev => ({ ...prev, nombre_completo: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Ingresa el nombre completo"
                   />
                 </div>
                 

@@ -45,23 +45,27 @@ export const auth = {
     }
   },
 
-  // Login de administrador
+  // Login de administrador - SOLO gustavo.reyes@edessa.do
   async loginAdmin(email, password) {
     try {
-      const { data, error } = await supabase.rpc('admin_login', {
-        email_param: email.toLowerCase(), // Case-insensitive email
-        password_param: password // Case-sensitive password
-      })
-
-      if (error || !data) {
-        throw new Error('Credenciales inválidas')
+      // Validación estricta: SOLO el usuario autorizado
+      const ADMIN_EMAIL = 'gustavo.reyes@edessa.do'
+      const ADMIN_PASSWORD = 'EdessA2748'
+      
+      if (email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        throw new Error('Usuario no autorizado')
+      }
+      
+      if (password !== ADMIN_PASSWORD) {
+        throw new Error('Contraseña incorrecta')
       }
 
+      // Crear sesión solo para el usuario autorizado
       const session = {
         user: {
-          id: data.id,
-          email: data.email,
-          nombre: data.nombre_completo,
+          id: 1,
+          email: ADMIN_EMAIL,
+          nombre: 'Gustavo Reyes',
           tipo: 'admin'
         }
       }
@@ -148,15 +152,41 @@ export const supervisorService = {
     try {
       console.log('Buscando vendedores para supervisor:', supervisorCodigo)
       
-      // Obtener vendedores únicos por supervisor (desnormalizado)
-      const { data, error } = await supabase
+      // Primero verificar qué supervisores existen en la tabla
+      const { data: supervisoresExistentes } = await supabase
         .from('asignaciones')
-        .select('vendedor_codigo, vendedor_nombre, ruta_codigo, ruta_nombre')
-        .eq('supervisor_codigo', supervisorCodigo)
+        .select('supervisor_codigo, supervisor_nombre')
+        .not('supervisor_codigo', 'is', null)
+        .limit(10)
+      
+      console.log('Supervisores en BD:', supervisoresExistentes?.map(s => ({
+        codigo: s.supervisor_codigo,
+        nombre: s.supervisor_nombre
+      })))
+      
+      // Buscar por código exacto y también por nombre similar
+      let query = supabase
+        .from('asignaciones')
+        .select('vendedor_codigo, vendedor_nombre, ruta_codigo, ruta_nombre, supervisor_codigo, supervisor_nombre')
+      
+      // Intentar buscar por código exacto primero
+      let { data, error } = await query.eq('supervisor_codigo', supervisorCodigo)
       
       if (error) {
         console.error('Error en consulta vendedores:', error)
         throw error
+      }
+      
+      // Si no encuentra por código, intentar por nombre parcial
+      if (!data || data.length === 0) {
+        console.log('No encontrado por código, buscando por nombre...')
+        const { data: dataByName } = await supabase
+          .from('asignaciones')
+          .select('vendedor_codigo, vendedor_nombre, ruta_codigo, ruta_nombre, supervisor_codigo, supervisor_nombre')
+          .ilike('supervisor_nombre', `%${supervisorCodigo}%`)
+        
+        data = dataByName || []
+        console.log('Búsqueda por nombre encontró:', data.length, 'registros')
       }
       
       // Eliminar duplicados y formatear
@@ -184,7 +214,8 @@ export const supervisorService = {
     try {
       console.log('Buscando asignaciones para supervisor:', supervisorCodigo)
       
-      const { data, error } = await supabase
+      // Intentar buscar por código exacto primero
+      let { data, error } = await supabase
         .from('asignaciones')
         .select(`
           vendedor_codigo,
@@ -195,7 +226,9 @@ export const supervisorService = {
           categoria_nombre,
           estado,
           ruta_codigo,
-          ruta_nombre
+          ruta_nombre,
+          supervisor_codigo,
+          supervisor_nombre
         `)
         .eq('supervisor_codigo', supervisorCodigo)
       
@@ -204,11 +237,334 @@ export const supervisorService = {
         throw error
       }
       
+      // Si no encuentra por código, intentar por nombre parcial
+      if (!data || data.length === 0) {
+        console.log('No encontrado por código, buscando asignaciones por nombre...')
+        const { data: dataByName } = await supabase
+          .from('asignaciones')
+          .select(`
+            vendedor_codigo,
+            vendedor_nombre,
+            cliente_codigo,
+            cliente_nombre,
+            categoria_codigo,
+            categoria_nombre,
+            estado,
+            ruta_codigo,
+            ruta_nombre,
+            supervisor_codigo,
+            supervisor_nombre
+          `)
+          .ilike('supervisor_nombre', `%${supervisorCodigo}%`)
+        
+        data = dataByName || []
+        console.log('Búsqueda por nombre encontró:', data.length, 'asignaciones')
+      }
+      
       console.log('Asignaciones encontradas:', data?.length || 0)
       return { data: data || [], error: null }
     } catch (error) {
       console.error('Error getting asignaciones by supervisor:', error)
       return { data: [], error }
+    }
+  }
+}
+
+// Funciones para gestión de rutas
+export const rutasService = {
+  // Obtener todas las rutas
+  async getAllRutas() {
+    try {
+      const { data, error } = await supabase
+        .from('rutas')
+        .select('*')
+        .eq('activa', true)
+        .order('nombre')
+
+      if (error) throw error
+
+      return { data: data || [], error: null }
+    } catch (error) {
+      console.error('Error getting rutas:', error)
+      return { data: [], error: error.message }
+    }
+  },
+
+  // Obtener rutas desde asignaciones (datos desnormalizados)
+  async getRutasFromAsignaciones() {
+    try {
+      const { data, error } = await supabase
+        .from('asignaciones')
+        .select('ruta_codigo, ruta_nombre')
+        .not('ruta_codigo', 'is', null)
+        .not('ruta_nombre', 'is', null)
+
+      if (error) throw error
+
+      // Eliminar duplicados
+      const rutasUnicas = []
+      const seen = new Set()
+      
+      data?.forEach(item => {
+        const key = `${item.ruta_codigo}-${item.ruta_nombre}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          rutasUnicas.push({
+            codigo: item.ruta_codigo,
+            nombre: item.ruta_nombre,
+            activa: true
+          })
+        }
+      })
+
+      return { data: rutasUnicas, error: null }
+    } catch (error) {
+      console.error('Error getting rutas from asignaciones:', error)
+      return { data: [], error: error.message }
+    }
+  },
+
+  // Sincronizar rutas desde asignaciones a tabla rutas
+  async syncRutasFromAsignaciones() {
+    try {
+      // Obtener rutas únicas desde asignaciones
+      const { data: rutasFromAsignaciones } = await this.getRutasFromAsignaciones()
+      
+      if (!rutasFromAsignaciones || rutasFromAsignaciones.length === 0) {
+        return { data: [], error: 'No hay rutas en asignaciones para sincronizar' }
+      }
+
+      // Obtener rutas existentes en tabla rutas
+      const { data: rutasExistentes } = await this.getAllRutas()
+      const codigosExistentes = new Set(rutasExistentes?.map(r => r.codigo) || [])
+
+      // Insertar rutas nuevas
+      const rutasNuevas = rutasFromAsignaciones.filter(ruta => 
+        !codigosExistentes.has(ruta.codigo)
+      )
+
+      if (rutasNuevas.length > 0) {
+        const { data, error } = await supabase
+          .from('rutas')
+          .insert(rutasNuevas.map(ruta => ({
+            codigo: ruta.codigo,
+            nombre: ruta.nombre,
+            descripcion: `Ruta ${ruta.nombre}`,
+            activa: true
+          })))
+          .select()
+
+        if (error) throw error
+
+        return { data: data || [], error: null }
+      }
+
+      return { data: [], error: null }
+    } catch (error) {
+      console.error('Error syncing rutas:', error)
+      return { data: [], error: error.message }
+    }
+  },
+
+  // Diagnosticar problemas con rutas
+  async diagnosticRutas() {
+    try {
+      const results = {}
+
+      // 1. Verificar si tabla rutas existe
+      const { data: tablaRutas, error: errorTabla } = await supabase
+        .from('rutas')
+        .select('count(*)')
+        .limit(1)
+
+      results.tablaRutasExiste = !errorTabla
+      results.errorTabla = errorTabla?.message
+
+      // 2. Contar rutas en tabla rutas
+      if (results.tablaRutasExiste) {
+        const { data: countRutas } = await supabase
+          .from('rutas')
+          .select('*', { count: 'exact' })
+
+        results.totalRutasEnTabla = countRutas?.length || 0
+      }
+
+      // 3. Contar rutas únicas en asignaciones
+      const { data: rutasAsignaciones } = await this.getRutasFromAsignaciones()
+      results.totalRutasEnAsignaciones = rutasAsignaciones?.length || 0
+
+      // 4. Verificar asignaciones sin ruta
+      const { data: sinRuta, error: errorSinRuta } = await supabase
+        .from('asignaciones')
+        .select('count(*)')
+        .or('ruta_codigo.is.null,ruta_nombre.is.null')
+
+      results.asignacionesSinRuta = sinRuta?.[0]?.count || 0
+
+      // 5. Muestra de rutas en asignaciones
+      const { data: muestraRutas } = await supabase
+        .from('asignaciones')
+        .select('ruta_codigo, ruta_nombre')
+        .not('ruta_codigo', 'is', null)
+        .limit(5)
+
+      results.muestraRutas = muestraRutas || []
+
+      return { data: results, error: null }
+    } catch (error) {
+      console.error('Error in diagnostic:', error)
+      return { data: null, error: error.message }
+    }
+  }
+}
+
+// Funciones para gestión de usuarios
+export const userManagementService = {
+  // Obtener todos los usuarios del sistema
+  async getAllUsers() {
+    try {
+      // Obtener vendedores
+      const { data: vendedores, error: errorVendedores } = await supabase
+        .from('vendedores')
+        .select('id, codigo, nombre_completo, email, activo, created_at')
+        .order('nombre_completo')
+
+      if (errorVendedores) throw errorVendedores
+
+      // Obtener supervisores
+      const { data: supervisores, error: errorSupervisores } = await supabase
+        .from('supervisores')
+        .select('id, codigo, nombre_completo, email, activo, created_at')
+        .order('nombre_completo')
+
+      if (errorSupervisores) throw errorSupervisores
+
+      // Combinar y formatear usuarios
+      const usuarios = [
+        ...vendedores.map(v => ({ ...v, tipo: 'vendedor' })),
+        ...supervisores.map(s => ({ ...s, tipo: 'supervisor' })),
+        // Agregar admin hardcodeado
+        {
+          id: 'admin-1',
+          codigo: 'ADMIN',
+          nombre_completo: 'Gustavo Reyes',
+          email: 'gustavo.reyes@edessa.do',
+          tipo: 'admin',
+          activo: true,
+          created_at: '2024-01-01T00:00:00Z'
+        }
+      ]
+
+      return { data: usuarios, error: null }
+    } catch (error) {
+      console.error('Error getting users:', error)
+      return { data: [], error: error.message }
+    }
+  },
+
+  // Crear nuevo usuario
+  async createUser(userData) {
+    try {
+      const { codigo, nombre_completo, email, tipo } = userData
+      
+      if (tipo === 'admin') {
+        throw new Error('No se pueden crear administradores adicionales')
+      }
+
+      const table = tipo === 'supervisor' ? 'supervisores' : 'vendedores'
+      
+      const { data, error } = await supabase
+        .from(table)
+        .insert({
+          codigo: codigo.toUpperCase(),
+          nombre_completo,
+          email: email.toLowerCase(),
+          activo: true
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return { data: { ...data, tipo }, error: null }
+    } catch (error) {
+      console.error('Error creating user:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Actualizar usuario
+  async updateUser(userId, userData) {
+    try {
+      const { tipo, ...updateData } = userData
+      
+      if (tipo === 'admin') {
+        throw new Error('No se puede modificar el administrador')
+      }
+
+      const table = tipo === 'supervisor' ? 'supervisores' : 'vendedores'
+      
+      const { data, error } = await supabase
+        .from(table)
+        .update(updateData)
+        .eq('id', userId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return { data: { ...data, tipo }, error: null }
+    } catch (error) {
+      console.error('Error updating user:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Cambiar estado activo/inactivo
+  async toggleUserStatus(userId, tipo, newStatus) {
+    try {
+      if (tipo === 'admin') {
+        throw new Error('No se puede desactivar el administrador')
+      }
+
+      const table = tipo === 'supervisor' ? 'supervisores' : 'vendedores'
+      
+      const { data, error } = await supabase
+        .from(table)
+        .update({ activo: newStatus })
+        .eq('id', userId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return { data: { ...data, tipo }, error: null }
+    } catch (error) {
+      console.error('Error toggling user status:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Eliminar usuario
+  async deleteUser(userId, tipo) {
+    try {
+      if (tipo === 'admin') {
+        throw new Error('No se puede eliminar el administrador')
+      }
+
+      const table = tipo === 'supervisor' ? 'supervisores' : 'vendedores'
+      
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', userId)
+
+      if (error) throw error
+
+      return { data: true, error: null }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      return { data: false, error: error.message }
     }
   }
 }
@@ -272,12 +628,65 @@ export const adminService = {
         .order('created_at', { ascending: false })
         .limit(15)
       
+      // Calcular datos para gráficos desde datos reales
+      const { data: activacionesPorRuta } = await supabase
+        .from('asignaciones')
+        .select('ruta_nombre, estado')
+        .not('ruta_nombre', 'is', null)
+      
+      // Procesar activaciones por ruta
+      const rutasMap = new Map()
+      activacionesPorRuta?.forEach(asignacion => {
+        const ruta = asignacion.ruta_nombre
+        if (!rutasMap.has(ruta)) {
+          rutasMap.set(ruta, { total: 0, activadas: 0 })
+        }
+        const rutaData = rutasMap.get(ruta)
+        rutaData.total++
+        if (asignacion.estado === 'Activado') {
+          rutaData.activadas++
+        }
+      })
+      
+      const chartData = Array.from(rutasMap.entries()).map(([ruta, data]) => ({
+        zona: ruta,
+        activacion: data.total > 0 ? Math.round((data.activadas / data.total) * 100) : 0
+      }))
+      
+      // Calcular activaciones por categoría
+      const { data: activacionesPorCategoria } = await supabase
+        .from('asignaciones')
+        .select('categoria_nombre, estado')
+        .not('categoria_nombre', 'is', null)
+      
+      const categoriasMap = new Map()
+      activacionesPorCategoria?.forEach(asignacion => {
+        const categoria = asignacion.categoria_nombre
+        if (!categoriasMap.has(categoria)) {
+          categoriasMap.set(categoria, { total: 0, activadas: 0 })
+        }
+        const catData = categoriasMap.get(categoria)
+        catData.total++
+        if (asignacion.estado === 'Activado') {
+          catData.activadas++
+        }
+      })
+      
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+      const pieData = Array.from(categoriasMap.entries()).map(([categoria, data], index) => ({
+        name: categoria,
+        value: data.total > 0 ? Math.round((data.activadas / data.total) * 100) : 0,
+        color: colors[index % colors.length]
+      }))
+
       const stats = {
         totalSupervisores: uniqueSupervisores.size,
         totalVendedores: uniqueVendedores.size,
         totalClientes: uniqueClientes.size,
         ultimaImportacion: (ultimaImportacion && ultimaImportacion.length > 0) ? ultimaImportacion[0] : null,
-        recentData: recentData || []
+        recentData: recentData || [],
+        chartData: chartData,
+        pieData: pieData
       }
       
       console.log('Estadísticas cargadas:', stats)

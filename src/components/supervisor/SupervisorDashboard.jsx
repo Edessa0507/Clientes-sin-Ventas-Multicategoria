@@ -78,13 +78,17 @@ const SupervisorDashboard = () => {
         return
       }
 
+      console.log('Cargando datos para supervisor:', user.codigo, user.nombre)
+      
       // Cargar vendedores por supervisor usando código
       const vendedoresResult = await supervisorService.getVendedoresBySupervisor(user.codigo)
       const vendedoresData = vendedoresResult.data || []
+      console.log('Vendedores cargados:', vendedoresData.length, vendedoresData)
 
       // Cargar asignaciones por supervisor usando código
       const asignacionesResult = await supervisorService.getAsignacionesBySupervisor(user.codigo)
       const asignacionesData = asignacionesResult.data || []
+      console.log('Asignaciones cargadas:', asignacionesData.length)
 
       setVendedores(vendedoresData)
       
@@ -219,33 +223,33 @@ const SupervisorDashboard = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-success-100 dark:bg-success-900 rounded-full flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-success-600 dark:text-success-400" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
+              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-success-100 dark:bg-success-900 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-success-600 dark:text-success-400" />
                 </div>
-                <div>
-                  <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
                     {user?.nombre}
                   </h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                     Supervisor • {user?.codigo}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
-              {/* Indicador de conexión */}
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-3">
+              {/* Indicador de conexión - Solo icono en móvil */}
+              <div className="flex items-center space-x-1 sm:space-x-2">
                 {isOnline ? (
                   <Wifi className="w-5 h-5 text-success-500" />
                 ) : (
                   <WifiOff className="w-5 h-5 text-warning-500" />
                 )}
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">
                   {isOnline ? 'En línea' : 'Sin conexión'}
                 </span>
               </div>
@@ -262,7 +266,7 @@ const SupervisorDashboard = () => {
                     localStorage.setItem('theme', 'dark')
                   }
                 }}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors touch-manipulation"
                 title="Cambiar tema"
               >
                 <Sun className="w-5 h-5 text-gray-600 dark:text-gray-400 dark:hidden" />
@@ -273,7 +277,7 @@ const SupervisorDashboard = () => {
               <button
                 onClick={loadData}
                 disabled={loading}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors touch-manipulation"
               >
                 <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
               </button>
@@ -281,19 +285,19 @@ const SupervisorDashboard = () => {
               {/* Botón de cerrar sesión */}
               <button
                 onClick={logout}
-                className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors touch-manipulation"
               >
                 <LogOut className="w-4 h-4" />
-                <span>Salir</span>
+                <span className="hidden sm:inline">Salir</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Estadísticas generales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -302,13 +306,13 @@ const SupervisorDashboard = () => {
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Users className="h-8 w-8 text-success-600" />
+                <Users className="h-6 w-6 sm:h-8 sm:w-8 text-success-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Total Vendedores
+              <div className="ml-2 sm:ml-4 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Vendedores
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {statsData.totalVendedores}
                 </p>
               </div>
@@ -323,13 +327,13 @@ const SupervisorDashboard = () => {
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <User className="h-8 w-8 text-primary-600" />
+                <User className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Total Clientes
+              <div className="ml-2 sm:ml-4 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Clientes
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {statsData.totalClientes}
                 </p>
               </div>
@@ -344,13 +348,13 @@ const SupervisorDashboard = () => {
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <CheckCircle className="h-8 w-8 text-success-600" />
+                <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-success-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Clientes Activados
+              <div className="ml-2 sm:ml-4 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Activados
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {statsData.clientesActivados}
                 </p>
               </div>
@@ -365,13 +369,13 @@ const SupervisorDashboard = () => {
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <TrendingUp className="h-8 w-8 text-primary-600" />
+                <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  % Activación Total
+              <div className="ml-2 sm:ml-4 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
+                  % Activación
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                   {statsData.porcentajeActivacion}%
                 </p>
               </div>
@@ -379,135 +383,144 @@ const SupervisorDashboard = () => {
           </motion.div>
         </div>
 
-        {/* Filtros de vendedores */}
+        {/* Filtros compactos */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="card mb-6"
+          className="card mb-4 sm:mb-6"
         >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Filtrar Vendedores
-            </h3>
-            <div className="flex space-x-2">
-              <button
-                onClick={selectAllVendedores}
-                className="btn-secondary text-sm"
-              >
-                Todos
-              </button>
-              <button
-                onClick={clearSelection}
-                className="btn-secondary text-sm"
-              >
-                Ninguno
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {vendedores.map(vendedor => (
-              <label
-                key={vendedor.codigo}
-                className="flex items-center space-x-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-              >
-                <input
-                  type="checkbox"
-                  checked={false}
-                  onChange={() => handleVendedorToggle(vendedor.codigo)}
-                  className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {vendedor.nombre_completo}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {vendedor.codigo}
-                  </p>
-                </div>
+          <div className="space-y-3 sm:space-y-0 sm:flex sm:flex-row sm:gap-4">
+            {/* Filtro por vendedor */}
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:hidden">
+                Vendedor
               </label>
-            ))}
+              <select
+                value={filterVendedor}
+                onChange={(e) => setFilterVendedor(e.target.value)}
+                className="input-field h-10 sm:h-auto text-base sm:text-sm"
+              >
+                <option value="todos">Todos los vendedores</option>
+                {vendedorStats.map(stat => (
+                  <option key={stat.vendedor.codigo} value={stat.vendedor.codigo}>
+                    {stat.vendedor.nombre_completo}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro por ruta */}
+            <div className="sm:w-48">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 sm:hidden">
+                Ruta
+              </label>
+              <select
+                value={filterRuta}
+                onChange={(e) => setFilterRuta(e.target.value)}
+                className="input-field h-10 sm:h-auto text-base sm:text-sm"
+              >
+                <option value="todas">Todas las rutas</option>
+                {rutasDisponibles.map(ruta => (
+                  <option key={ruta.codigo} value={ruta.codigo}>
+                    {ruta.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </motion.div>
 
-        {/* Filtro por vendedor */}
+        {/* Rendimiento por vendedor */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="card mb-6"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Filtro por vendedor
-            </h3>
-          </div>
-
-          <div className="sm:w-64">
-            <select
-              value={filterVendedor}
-              onChange={(e) => setFilterVendedor(e.target.value)}
-              className="input-field"
-            >
-              <option value="todos">Todos los vendedores</option>
-              {vendedorStats.map(stat => (
-                <option key={stat.vendedor.codigo} value={stat.vendedor.codigo}>
-                  {stat.vendedor.nombre_completo}
-                </option>
-              ))}
-            </select>
-          </div>
-        </motion.div>
-
-        {/* Filtro por ruta */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-          className="card mb-6"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Filtro por ruta
-            </h3>
-          </div>
-
-          <div className="sm:w-48">
-            <select
-              value={filterRuta}
-              onChange={(e) => setFilterRuta(e.target.value)}
-              className="input-field"
-            >
-              <option value="todas">Todas las rutas</option>
-              {rutasDisponibles.map(ruta => (
-                <option key={ruta.codigo} value={ruta.codigo}>
-                  {ruta.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-        </motion.div>
-
-        {/* Tabla de rendimiento por vendedor */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
           className="card overflow-hidden"
         >
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              Rendimiento por Vendedor ({filteredVendedorStats.length} seleccionados)
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">
+              Rendimiento por Vendedor ({filteredVendedorStats.length})
             </h3>
             {lastUpdate && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Última actualización: {lastUpdate.toLocaleString()}
               </p>
             )}
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Vista móvil - Tarjetas */}
+          <div className="block sm:hidden">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredVendedorStats.map((stat, index) => (
+                <motion.div
+                  key={stat.vendedor.codigo}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="p-4 bg-white dark:bg-gray-800"
+                >
+                  {/* Encabezado del vendedor */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {stat.vendedor.nombre_completo}
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {stat.vendedor.codigo} • {stat.vendedor.ruta_nombre || 'Sin ruta'}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
+                        {stat.porcentajeActivacion}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Métricas en grid */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">
+                        {stat.totalClientes}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Total Clientes
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-success-600 dark:text-success-400">
+                        {stat.clientesActivados}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Activados
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                        {stat.activacionesTotales}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Total Activaciones
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Barra de progreso */}
+                  <div className="mt-3">
+                    <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                      <div 
+                        className="bg-primary-600 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${stat.porcentajeActivacion}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Vista desktop - Tabla */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
@@ -586,19 +599,20 @@ const SupervisorDashboard = () => {
                 ))}
               </tbody>
             </table>
-
-            {filteredVendedorStats.length === 0 && (
-              <div className="text-center py-12">
-                <BarChart3 className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-                  No hay vendedores seleccionados
-                </h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Selecciona uno o más vendedores para ver sus estadísticas.
-                </p>
-              </div>
-            )}
           </div>
+
+          {/* Estado vacío */}
+          {filteredVendedorStats.length === 0 && (
+            <div className="text-center py-12">
+              <BarChart3 className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                No hay vendedores
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                No se encontraron vendedores con los filtros aplicados.
+              </p>
+            </div>
+          )}
         </motion.div>
       </main>
     </div>

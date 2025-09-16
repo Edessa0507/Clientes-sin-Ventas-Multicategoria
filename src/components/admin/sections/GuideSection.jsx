@@ -13,12 +13,15 @@ import {
   Play,
   Book,
   Video,
-  Download
+  Download,
+  Menu,
+  X
 } from 'lucide-react'
 
 const GuideSection = () => {
   const [activeSection, setActiveSection] = useState('overview')
   const [expandedItems, setExpandedItems] = useState({})
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const guideData = {
     overview: {
@@ -342,14 +345,14 @@ const GuideSection = () => {
         transition={{ duration: 0.3 }}
         className="space-y-6"
       >
-        <div className="flex items-center space-x-3">
-          <section.icon className="w-8 h-8 text-primary-600" />
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <section.icon className="w-6 h-6 sm:w-8 sm:h-8 text-primary-600" />
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
             {section.title}
           </h2>
         </div>
 
-        <p className="text-lg text-gray-600 dark:text-gray-400">
+        <p className="text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-400">
           {section.content.description}
         </p>
 
@@ -372,7 +375,7 @@ const GuideSection = () => {
             </div>
 
             {/* Roles */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {section.content.roles.map((role, index) => (
                 <motion.div
                   key={role.name}
@@ -381,19 +384,19 @@ const GuideSection = () => {
                   transition={{ delay: index * 0.1 }}
                   className="card"
                 >
-                  <div className="flex items-center space-x-3 mb-3">
-                    <role.icon className="w-6 h-6 text-primary-600" />
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <div className="flex items-center space-x-2 sm:space-x-3 mb-3">
+                    <role.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-600" />
+                    <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                       {role.name}
                     </h4>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-3">
                     {role.description}
                   </p>
                   <ul className="space-y-1">
                     {role.access.map((item, idx) => (
-                      <li key={idx} className="text-sm text-gray-700 dark:text-gray-300 flex items-center space-x-2">
-                        <div className="w-1.5 h-1.5 bg-primary-600 rounded-full"></div>
+                      <li key={idx} className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+                        <div className="w-1.5 h-1.5 bg-primary-600 rounded-full flex-shrink-0"></div>
                         <span>{item}</span>
                       </li>
                     ))}
@@ -404,56 +407,83 @@ const GuideSection = () => {
           </div>
         )}
 
+        {/* Pasos */}
+        {(activeSection === 'users' || activeSection === 'data' || activeSection === 'reports') && (
+          <div className="space-y-4 sm:space-y-6">
+            {section.content.steps.map((step, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="card"
+              >
+                <div className="flex items-start space-x-3 sm:space-x-4">
+                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
+                    <span className="text-xs sm:text-sm font-semibold text-primary-600 dark:text-primary-400">
+                      {index + 1}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      {step.title}
+                    </h4>
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-3">
+                      {step.description}
+                    </p>
+                    {step.details && (
+                      <ul className="space-y-1">
+                        {step.details.map((detail, idx) => (
+                          <li key={idx} className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 flex items-start space-x-2">
+                            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full flex-shrink-0 mt-1.5"></div>
+                            <span className="flex-1">{detail}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
         {/* Pasos para login */}
         {activeSection === 'login' && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {section.content.steps.map((step, index) => (
               <div key={index} className="card">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3">
                   {step.title}
                 </h3>
                 <ol className="space-y-2">
                   {step.details.map((detail, idx) => (
-                    <li key={idx} className="flex items-start space-x-3">
-                      <span className="flex-shrink-0 w-6 h-6 bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center text-sm font-medium">
+                    <li key={idx} className="flex items-start space-x-2 sm:space-x-3">
+                      <span className="flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center text-xs font-semibold text-primary-600 dark:text-primary-400">
                         {idx + 1}
                       </span>
-                      <span className="text-gray-700 dark:text-gray-300">{detail}</span>
+                      <span className="text-sm sm:text-base text-gray-700 dark:text-gray-300 flex-1">{detail}</span>
                     </li>
                   ))}
                 </ol>
               </div>
             ))}
-
-            <div className="card bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-              <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                Consejos Útiles
-              </h3>
-              <ul className="space-y-2">
-                {section.content.tips.map((tip, index) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <div className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                    <span className="text-blue-800 dark:text-blue-200 text-sm">{tip}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
         )}
 
         {/* Secciones de paneles */}
         {(activeSection === 'vendedor' || activeSection === 'supervisor' || activeSection === 'admin') && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {section.content.sections.map((sec, index) => (
               <div key={index} className="card">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3">
                   {sec.title}
                 </h3>
                 <ul className="space-y-2">
                   {sec.items.map((item, idx) => (
                     <li key={idx} className="flex items-start space-x-2">
                       <CheckCircle className="w-4 h-4 text-success-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700 dark:text-gray-300 text-sm">{item}</span>
+                      <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 flex-1">{item}</span>
                     </li>
                   ))}
                 </ul>
@@ -462,10 +492,10 @@ const GuideSection = () => {
 
             {section.content.offline && (
               <div className="card bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
+                <h3 className="text-base sm:text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
                   Funcionalidad Offline
                 </h3>
-                <p className="text-green-800 dark:text-green-200 text-sm">
+                <p className="text-xs sm:text-sm text-green-800 dark:text-green-200">
                   {section.content.offline}
                 </p>
               </div>
@@ -473,14 +503,14 @@ const GuideSection = () => {
 
             {section.content.tips && (
               <div className="card bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-                <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
+                <h3 className="text-base sm:text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
                   Consejos
                 </h3>
                 <ul className="space-y-2">
                   {section.content.tips.map((tip, index) => (
                     <li key={index} className="flex items-start space-x-2">
                       <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full mt-2 flex-shrink-0"></div>
-                      <span className="text-yellow-800 dark:text-yellow-200 text-sm">{tip}</span>
+                      <span className="text-xs sm:text-sm text-yellow-800 dark:text-yellow-200 flex-1">{tip}</span>
                     </li>
                   ))}
                 </ul>
@@ -531,57 +561,81 @@ const GuideSection = () => {
 
         {/* Sección de troubleshooting */}
         {activeSection === 'troubleshooting' && (
-          <div className="space-y-6">
-            {section.content.problems.map((problem, index) => (
-              <div key={index} className="card">
-                <button
-                  onClick={() => toggleExpanded(`problem-${index}`)}
-                  className="w-full flex items-center justify-between text-left"
+          <div className="space-y-4 sm:space-y-6">
+            {section.content.problems.map((problem, index) => {
+              const isExpanded = expandedItems[`problem-${index}`]
+              
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="card"
                 >
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {problem.title}
-                  </h3>
-                  {expandedItems[`problem-${index}`] ? (
-                    <ChevronDown className="w-5 h-5 text-gray-500" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-gray-500" />
-                  )}
-                </button>
-                
-                <AnimatePresence>
-                  {expandedItems[`problem-${index}`] && (
+                  <button
+                    onClick={() => toggleExpanded(`problem-${index}`)}
+                    className="w-full flex items-center justify-between text-left touch-manipulation"
+                  >
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white pr-2">
+                      {problem.title}
+                    </h3>
                     <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mt-3"
+                      animate={{ rotate: isExpanded ? 90 : 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex-shrink-0"
                     >
-                      <ul className="space-y-2">
-                        {problem.solutions.map((solution, idx) => (
-                          <li key={idx} className="flex items-start space-x-2">
-                            <CheckCircle className="w-4 h-4 text-success-500 mt-0.5 flex-shrink-0" />
-                            <span className="text-gray-700 dark:text-gray-300 text-sm">{solution}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
                     </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="mt-4 space-y-3"
+                      >
+                        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                          {problem.description}
+                        </p>
+                        <div>
+                          <h4 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white mb-2">
+                            Solución:
+                          </h4>
+                          <ul className="space-y-1">
+                            {problem.solution.map((step, idx) => (
+                              <li key={idx} className="flex items-start space-x-2">
+                                <div className="w-1.5 h-1.5 bg-primary-600 rounded-full mt-1.5 flex-shrink-0"></div>
+                                <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 flex-1">{step}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
 
-            <div className="card bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-              <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                {section.content.contact.title}
-              </h3>
-              <ul className="space-y-2">
-                {section.content.contact.info.map((info, index) => (
-                  <li key={index} className="text-blue-800 dark:text-blue-200 text-sm">
-                    {info}
-                  </li>
-                ))}
-              </ul>
-            </div>
+        {/* Sección de contact */}
+        {activeSection === 'troubleshooting' && (
+          <div className="card bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <h3 className="text-base sm:text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3">
+              {section.content.contact.title}
+            </h3>
+            <ul className="space-y-2">
+              {section.content.contact.info.map((info, index) => (
+                <li key={index} className="text-xs sm:text-sm text-blue-800 dark:text-blue-200">
+                  {info}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </motion.div>
@@ -589,43 +643,123 @@ const GuideSection = () => {
   }
 
   return (
-    <div className="flex h-full">
-      {/* Sidebar */}
-      <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
-        <div className="p-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+    <div className="flex flex-col lg:flex-row h-full relative">
+      {/* Header móvil con navegación */}
+      <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Guía de Uso
           </h2>
-          <nav className="space-y-1">
-            {sidebarItems.map((item, index) => {
-              const Icon = item.icon
-              const isActive = activeSection === item.id
-              
-              return (
-                <motion.button
-                  key={item.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <Icon className={`mr-3 h-4 w-4 ${isActive ? 'text-primary-500' : ''}`} />
-                  {item.title}
-                </motion.button>
-              )
-            })}
-          </nav>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            {sidebarOpen ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5" />
+            )}
+          </button>
+        </div>
+
+        {/* Indicador de sección activa en móvil */}
+        <div className="mt-3 flex items-center space-x-2">
+          {(() => {
+            const activeItem = sidebarItems.find(item => item.id === activeSection)
+            const Icon = activeItem?.icon || Book
+            return (
+              <>
+                <Icon className="w-4 h-4 text-primary-500" />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {activeItem?.title}
+                </span>
+              </>
+            )
+          })()}
         </div>
       </div>
 
+      {/* Overlay para móvil */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-20"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar */}
+      <AnimatePresence>
+        <motion.div
+          initial={{ x: -300 }}
+          animate={{ x: sidebarOpen ? 0 : -300 }}
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          className={`
+            fixed lg:relative lg:translate-x-0 z-30 lg:z-0
+            w-64 sm:w-72 lg:w-64
+            bg-white dark:bg-gray-800 shadow-lg lg:shadow-none
+            border-r border-gray-200 dark:border-gray-700 
+            h-full overflow-y-auto
+            ${sidebarOpen ? 'block' : 'hidden lg:block'}
+          `}
+        >
+          {/* Header del sidebar en móvil */}
+          <div className="lg:hidden px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Navegación
+              </h2>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-4">
+            <h2 className="hidden lg:block text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Guía de Uso
+            </h2>
+            <nav className="space-y-1">
+              {sidebarItems.map((item, index) => {
+                const Icon = item.icon
+                const isActive = activeSection === item.id
+                
+                return (
+                  <motion.button
+                    key={item.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    onClick={() => {
+                      setActiveSection(item.id)
+                      setSidebarOpen(false) // Cerrar sidebar en móvil
+                    }}
+                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                      isActive
+                        ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    <Icon className={`mr-3 h-4 w-4 flex-shrink-0 ${isActive ? 'text-primary-500' : ''}`} />
+                    <span className="truncate">{item.title}</span>
+                  </motion.button>
+                )
+              })}
+            </nav>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
+      <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="p-4 sm:p-6 lg:p-8">
           {renderContent()}
         </div>
       </div>

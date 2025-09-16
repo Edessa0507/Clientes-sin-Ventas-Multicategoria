@@ -152,60 +152,59 @@ export const supervisorService = {
     try {
       console.log('Buscando vendedores para supervisor:', supervisorCodigo)
       
-      // Primero verificar qué supervisores existen en la tabla
-      const { data: supervisoresExistentes } = await supabase
-        .from('asignaciones')
-        .select('supervisor_codigo, supervisor_nombre')
-        .not('supervisor_codigo', 'is', null)
-        .limit(10)
-      
-      console.log('Supervisores en BD:', supervisoresExistentes?.map(s => ({
-        codigo: s.supervisor_codigo,
-        nombre: s.supervisor_nombre
-      })))
-      
-      // Buscar por código exacto y también por nombre similar
-      let query = supabase
-        .from('asignaciones')
-        .select('vendedor_codigo, vendedor_nombre, ruta_codigo, ruta_nombre, supervisor_codigo, supervisor_nombre')
-      
-      // Intentar buscar por código exacto primero
-      let { data, error } = await query.eq('supervisor_codigo', supervisorCodigo)
+      // Usar función SQL para búsqueda flexible
+      const { data, error } = await supabase
+        .rpc('obtener_vendedores_supervisor', { 
+          codigo_busqueda: supervisorCodigo 
+        })
       
       if (error) {
-        console.error('Error en consulta vendedores:', error)
-        throw error
+        console.error('Error en RPC obtener_vendedores_supervisor:', error)
+        // Fallback a búsqueda manual si la función no existe
+        return await this.getVendedoresBySupervisorFallback(supervisorCodigo)
       }
       
-      // Si no encuentra por código, intentar por nombre parcial
-      if (!data || data.length === 0) {
-        console.log('No encontrado por código, buscando por nombre...')
-        const { data: dataByName } = await supabase
-          .from('asignaciones')
-          .select('vendedor_codigo, vendedor_nombre, ruta_codigo, ruta_nombre, supervisor_codigo, supervisor_nombre')
-          .ilike('supervisor_nombre', `%${supervisorCodigo}%`)
-        
-        data = dataByName || []
-        console.log('Búsqueda por nombre encontró:', data.length, 'registros')
-      }
-      
-      // Eliminar duplicados y formatear
-      const vendedoresUnicos = data.reduce((acc, item) => {
-        const key = item.vendedor_codigo
-        if (!acc[key]) {
-          acc[key] = {
-            codigo: item.vendedor_codigo,
-            nombre_completo: item.vendedor_nombre
-          }
-        }
-        return acc
-      }, {})
-      
-      const vendedores = Object.values(vendedoresUnicos)
-      console.log('Vendedores encontrados:', vendedores.length)
-      return { data: vendedores, error: null }
+      console.log('Vendedores encontrados:', data?.length || 0)
+      return { data: data || [], error: null }
     } catch (error) {
       console.error('Error getting vendedores by supervisor:', error)
+      // Fallback a búsqueda manual
+      return await this.getVendedoresBySupervisorFallback(supervisorCodigo)
+    }
+  },
+
+  async getVendedoresBySupervisorFallback(supervisorCodigo) {
+    try {
+      console.log('Usando fallback para supervisor:', supervisorCodigo)
+      
+      // Búsqueda más flexible con múltiples criterios
+      const { data, error } = await supabase
+        .from('asignaciones')
+        .select(`
+          vendedor_codigo,
+          vendedor_nombre,
+          supervisor_codigo,
+          supervisor_nombre
+        `)
+        .or(`supervisor_codigo.ilike.%${supervisorCodigo}%,supervisor_nombre.ilike.%${supervisorCodigo}%`)
+      
+      if (error) throw error
+      
+      // Eliminar duplicados por vendedor_codigo
+      const vendedoresUnicos = []
+      const seen = new Set()
+      
+      data?.forEach(item => {
+        if (!seen.has(item.vendedor_codigo)) {
+          seen.add(item.vendedor_codigo)
+          vendedoresUnicos.push(item)
+        }
+      })
+      
+      console.log('Vendedores encontrados (fallback):', vendedoresUnicos.length)
+      return { data: vendedoresUnicos, error: null }
+    } catch (error) {
+      console.error('Error in fallback search:', error)
       return { data: [], error }
     }
   },
@@ -214,8 +213,8 @@ export const supervisorService = {
     try {
       console.log('Buscando asignaciones para supervisor:', supervisorCodigo)
       
-      // Intentar buscar por código exacto primero
-      let { data, error } = await supabase
+      // Búsqueda más flexible con múltiples criterios
+      const { data, error } = await supabase
         .from('asignaciones')
         .select(`
           vendedor_codigo,
@@ -230,35 +229,11 @@ export const supervisorService = {
           supervisor_codigo,
           supervisor_nombre
         `)
-        .eq('supervisor_codigo', supervisorCodigo)
+        .or(`supervisor_codigo.ilike.%${supervisorCodigo}%,supervisor_nombre.ilike.%${supervisorCodigo}%`)
       
       if (error) {
         console.error('Error en consulta asignaciones:', error)
         throw error
-      }
-      
-      // Si no encuentra por código, intentar por nombre parcial
-      if (!data || data.length === 0) {
-        console.log('No encontrado por código, buscando asignaciones por nombre...')
-        const { data: dataByName } = await supabase
-          .from('asignaciones')
-          .select(`
-            vendedor_codigo,
-            vendedor_nombre,
-            cliente_codigo,
-            cliente_nombre,
-            categoria_codigo,
-            categoria_nombre,
-            estado,
-            ruta_codigo,
-            ruta_nombre,
-            supervisor_codigo,
-            supervisor_nombre
-          `)
-          .ilike('supervisor_nombre', `%${supervisorCodigo}%`)
-        
-        data = dataByName || []
-        console.log('Búsqueda por nombre encontró:', data.length, 'asignaciones')
       }
       
       console.log('Asignaciones encontradas:', data?.length || 0)
@@ -326,6 +301,25 @@ export const rutasService = {
 
   // Sincronizar rutas desde asignaciones a tabla rutas
   async syncRutasFromAsignaciones() {
+    try {
+      // Usar función SQL si está disponible
+      const { data, error } = await supabase
+        .rpc('sync_rutas_from_asignaciones')
+      
+      if (error) {
+        console.error('Error en RPC sync_rutas_from_asignaciones:', error)
+        // Fallback a sincronización manual
+        return await this.syncRutasFromAsignacionesFallback()
+      }
+      
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error syncing rutas:', error)
+      return await this.syncRutasFromAsignacionesFallback()
+    }
+  },
+
+  async syncRutasFromAsignacionesFallback() {
     try {
       // Obtener rutas únicas desde asignaciones
       const { data: rutasFromAsignaciones } = await this.getRutasFromAsignaciones()

@@ -14,7 +14,9 @@ import {
   Menu,
   X,
   Sun,
-  Moon
+  Moon,
+  MapPin,
+  BookOpen
 } from 'lucide-react'
 import { useUser } from '../../context/UserContext'
 import LoadingSpinner from '../ui/LoadingSpinner'

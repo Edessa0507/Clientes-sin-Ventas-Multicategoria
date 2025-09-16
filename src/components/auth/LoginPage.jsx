@@ -44,14 +44,32 @@ const LoginPage = () => {
   useEffect(() => {
     const autocompleteName = async () => {
       if (formData.codigo && formData.codigo.length >= 2 && loginType !== 'admin') {
-        setNameLoading(true)
-        try {
-          const name = await auth.getNameByCode(formData.codigo, loginType)
-          setAutocompletedName(name || '')
-        } catch (error) {
-          setAutocompletedName('')
-        } finally {
-          setNameLoading(false)
+        if (loginType === 'supervisor' && formData.codigo.length >= 3) {
+          // Mapear códigos conocidos
+          const supervisorMap = {
+            'CVALDEZ': 'CARLOS',
+            'CARLOS': 'CARLOS',
+            'ISMAEL': 'ISMAEL', 
+            'SEVERO': 'SEVERO'
+          }
+          
+          const mappedCode = supervisorMap[formData.codigo.toUpperCase()] || formData.codigo.toUpperCase()
+          const result = await auth.getNameByCode(mappedCode, loginType)
+          if (result.success) {
+            setAutocompletedName(result.data || '')
+          } else {
+            setAutocompletedName('')
+          }
+        } else {
+          setNameLoading(true)
+          try {
+            const name = await auth.getNameByCode(formData.codigo, loginType)
+            setAutocompletedName(name || '')
+          } catch (error) {
+            setAutocompletedName('')
+          } finally {
+            setNameLoading(false)
+          }
         }
       } else {
         setAutocompletedName('')

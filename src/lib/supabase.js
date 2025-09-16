@@ -77,6 +77,40 @@ export const auth = {
     }
   },
 
+  async loginSupervisor(codigo) {
+    try {
+      // Mapear códigos conocidos para compatibilidad
+      const supervisorMap = {
+        'CVALDEZ': 'CARLOS',
+        'CARLOS': 'CARLOS',
+        'ISMAEL': 'ISMAEL', 
+        'SEVERO': 'SEVERO'
+      }
+      
+      const mappedCode = supervisorMap[codigo.toUpperCase()] || codigo.toUpperCase()
+      
+      // Buscar supervisor por código mapeado
+      const result = await this.getVendedoresBySupervisor(mappedCode)
+      
+      if (result.data && result.data.length > 0) {
+        const supervisor = result.data[0]
+        const session = {
+          user: {
+            codigo: supervisor.supervisor_codigo,
+            nombre: supervisor.supervisor_nombre,
+            tipo: 'supervisor'
+          }
+        }
+        localStorage.setItem('session', JSON.stringify(session))
+        return { data: session, error: null }
+      } else {
+        throw new Error('Supervisor no encontrado')
+      }
+    } catch (error) {
+      return { data: null, error: error.message }
+    }
+  },
+
   // Obtener sesión actual
   getSession() {
     const session = localStorage.getItem('session')

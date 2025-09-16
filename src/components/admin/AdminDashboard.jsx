@@ -193,7 +193,7 @@ const AdminDashboard = () => {
 
             <nav className="mt-4 lg:mt-8 px-3 sm:px-4">
               <ul className="space-y-1 sm:space-y-2">
-                {sections.map((section, index) => {
+                {menuItems.map((section, index) => {
                   const Icon = section.icon
                   const isActive = activeSection === section.id
                   
@@ -233,13 +233,13 @@ const AdminDashboard = () => {
             <div className="lg:hidden mt-6 px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
               <div className="flex items-center space-x-2">
                 {(() => {
-                  const activeSection_ = sections.find(s => s.id === activeSection)
+                  const activeSection_ = menuItems.find(s => s.id === activeSection)
                   const Icon = activeSection_?.icon || BarChart3
                   return (
                     <>
                       <Icon className="w-4 h-4 text-primary-500" />
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {activeSection_?.name}
+                        {activeSection_?.label}
                       </span>
                     </>
                   )
